@@ -56,6 +56,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
     try {
       await AsyncStorage.removeItem('@auth_status');
       setIsLoggedIn(false);
+      console.log('User logged out successfully');
     } catch (error) {
       console.error('Error removing login status:', error);
     }

@@ -49,6 +49,7 @@ const ProductsScreen = () => {
         // In a real app, we'd fetch from an API
         // For this assignment, we'll use the static data from the root Products.json file
         const productsJson = require('../../../Products.json');
+        console.log('Products loaded:', productsJson.data.length);
         setProducts(productsJson.data);
         setIsLoading(false);
       } catch (error) {
@@ -62,6 +63,11 @@ const ProductsScreen = () => {
 
   const handleProductPress = (product: Product) => {
     navigation.navigate('ProductDetails', product);
+  };
+
+  const handleLogout = () => {
+    // Call the logout function from AuthContext
+    logout();
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -144,7 +150,7 @@ const ProductsScreen = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={dynamicStyles.iconButton}
-            onPress={logout}
+            onPress={handleLogout}
             testID="logout-button">
             <Text style={{color: colors.text}}>🚪</Text>
           </TouchableOpacity>

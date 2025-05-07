@@ -55,6 +55,7 @@ const LoginScreen = () => {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    console.log('Attempting login with:', data.username, data.password);
     setIsLoading(true);
     const success = await login(data.username, data.password);
     setIsLoading(false);
@@ -62,9 +63,11 @@ const LoginScreen = () => {
     if (!success) {
       Alert.alert(
         'Login Failed',
-        'Invalid username or password. Please try again.',
+        'Invalid username or password. Remember to use:\nUsername: eurisko\nPassword: academy2025',
         [{text: 'OK'}],
       );
+    } else {
+      console.log('Login successful!');
     }
   };
 
@@ -122,6 +125,12 @@ const LoginScreen = () => {
     linkText: {
       color: colors.primary,
       fontSize: normalize(16),
+    },
+    helpText: {
+      marginTop: normalize(12),
+      color: colors.text,
+      textAlign: 'center',
+      fontSize: normalize(14),
     },
   });
 
@@ -190,6 +199,10 @@ const LoginScreen = () => {
             {isLoading ? 'Logging in...' : 'Log In'}
           </Text>
         </TouchableOpacity>
+
+        <Text style={dynamicStyles.helpText}>
+          Hint: Use username "eurisko" and password "academy2025"
+        </Text>
 
         <View style={dynamicStyles.linkContainer}>
           <TouchableOpacity
