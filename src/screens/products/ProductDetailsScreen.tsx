@@ -13,6 +13,7 @@ import {
 import {useRoute, RouteProp} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from './ProductsScreen';
+import {ProductStackParamList} from '../../navigation/types';
 
 // Get screen dimensions for responsive design
 const {width, height} = Dimensions.get('window');
@@ -24,13 +25,8 @@ const normalize = (size: number) => {
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
 };
 
-// Define the route param type
-type RouteParams = {
-  ProductDetails: Product;
-};
-
 const ProductDetailsScreen = () => {
-  const route = useRoute<RouteProp<RouteParams, 'ProductDetails'>>();
+  const route = useRoute<RouteProp<ProductStackParamList, 'ProductDetails'>>();
   const {colors, isDarkMode} = useContext(ThemeContext);
   const product = route.params;
 

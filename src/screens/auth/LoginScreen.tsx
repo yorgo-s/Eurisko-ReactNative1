@@ -16,8 +16,6 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import {AuthContext} from '../../context/AuthContext';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {AuthStackParamList} from '../../navigation/types';
 import {Dimensions, PixelRatio} from 'react-native';
 
 // Get screen dimensions for responsive design
@@ -37,11 +35,9 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-const navigation =
-  useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+
 const LoginScreen = () => {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+  const navigation = useNavigation();
   const {login} = useContext(AuthContext);
   const {colors, isDarkMode} = useContext(ThemeContext);
   const [isLoading, setIsLoading] = useState(false);

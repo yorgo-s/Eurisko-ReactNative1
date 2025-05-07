@@ -15,6 +15,7 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
+import {AuthStackParamList} from '../../navigation/types';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');

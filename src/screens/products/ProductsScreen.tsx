@@ -5,14 +5,13 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Dimensions,
   PixelRatio,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {AuthContext} from '../../context/AuthContext';
-import ProductCard from '../../screens/products/ProductCard';
+import ProductCard from '../../components/products/ProductCard';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');

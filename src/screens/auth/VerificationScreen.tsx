@@ -1,4 +1,4 @@
-import React, {useContext, useState, useRef} from 'react';
+import React, {useContext, useRef} from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,9 @@ import {useForm, Controller} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {ThemeContext} from '../../context/ThemeContext';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
+import {AuthStackParamList} from '../../navigation/types';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
@@ -38,7 +39,7 @@ type VerificationFormData = z.infer<typeof verificationSchema>;
 
 const VerificationScreen = () => {
   const navigation = useNavigation();
-  const route = useRoute();
+  const route = useRoute<RouteProp<AuthStackParamList, 'Verification'>>();
   const {colors, isDarkMode} = useContext(ThemeContext);
   const email = route.params?.email || 'your email';
 
