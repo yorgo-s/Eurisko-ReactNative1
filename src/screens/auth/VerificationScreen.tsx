@@ -1,4 +1,4 @@
-import React, { useContext, useState, useRef } from 'react';
+import React, {useContext, useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,15 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ThemeContext } from '../../context/ThemeContext';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { Dimensions, PixelRatio } from 'react-native';
+import {useForm, Controller} from 'react-hook-form';
+import {z} from 'zod';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {ThemeContext} from '../../context/ThemeContext';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import {Dimensions, PixelRatio} from 'react-native';
 
 // Get screen dimensions for responsive design
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 const scale = width / 375;
 
 // Function to normalize font size based on screen width
@@ -39,9 +39,9 @@ type VerificationFormData = z.infer<typeof verificationSchema>;
 const VerificationScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, isDarkMode } = useContext(ThemeContext);
+  const {colors, isDarkMode} = useContext(ThemeContext);
   const email = route.params?.email || 'your email';
-  
+
   // References for TextInputs to enable auto-focus on next input
   const digit2Ref = useRef<TextInput>(null);
   const digit3Ref = useRef<TextInput>(null);
@@ -50,7 +50,7 @@ const VerificationScreen = () => {
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: {errors},
   } = useForm<VerificationFormData>({
     resolver: zodResolver(verificationSchema),
     defaultValues: {
@@ -63,7 +63,7 @@ const VerificationScreen = () => {
 
   const onSubmit = (data: VerificationFormData) => {
     const code = `${data.digit1}${data.digit2}${data.digit3}${data.digit4}`;
-    
+
     // In a real app, we would verify the code with an API
     // For this assignment, we'll just show a success message and navigate to login
     Alert.alert(
@@ -74,7 +74,7 @@ const VerificationScreen = () => {
           text: 'OK',
           onPress: () => navigation.navigate('Login'),
         },
-      ]
+      ],
     );
   };
 
@@ -82,7 +82,7 @@ const VerificationScreen = () => {
   const handleDigitChange = (
     text: string,
     onChange: (value: string) => void,
-    nextInputRef?: React.RefObject<TextInput>
+    nextInputRef?: React.RefObject<TextInput>,
   ) => {
     // Only accept a single digit
     const singleDigit = text.slice(0, 1).replace(/[^0-9]/g, '');
@@ -93,7 +93,7 @@ const VerificationScreen = () => {
       nextInputRef.current.focus();
     }
   };
-  
+
   const dynamicStyles = StyleSheet.create({
     container: {
       flex: 1,
@@ -168,19 +168,19 @@ const VerificationScreen = () => {
   return (
     <KeyboardAvoidingView
       style={dynamicStyles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={dynamicStyles.content}>
         <Text style={dynamicStyles.title}>Verification Code</Text>
         <Text style={dynamicStyles.subtitle}>
-          We've sent a code to <Text style={dynamicStyles.emailText}>{email}</Text>
+          We've sent a code to{' '}
+          <Text style={dynamicStyles.emailText}>{email}</Text>
         </Text>
 
         <View style={dynamicStyles.digitContainer}>
           <Controller
             control={control}
             name="digit1"
-            render={({ field: { onChange, value } }) => (
+            render={({field: {onChange, value}}) => (
               <TextInput
                 style={[
                   dynamicStyles.digitInput,
@@ -189,7 +189,9 @@ const VerificationScreen = () => {
                 keyboardType="number-pad"
                 maxLength={1}
                 value={value}
-                onChangeText={(text) => handleDigitChange(text, onChange, digit2Ref)}
+                onChangeText={text =>
+                  handleDigitChange(text, onChange, digit2Ref)
+                }
                 autoFocus
                 testID="digit1-input"
               />
@@ -199,7 +201,7 @@ const VerificationScreen = () => {
           <Controller
             control={control}
             name="digit2"
-            render={({ field: { onChange, value } }) => (
+            render={({field: {onChange, value}}) => (
               <TextInput
                 ref={digit2Ref}
                 style={[
@@ -209,7 +211,9 @@ const VerificationScreen = () => {
                 keyboardType="number-pad"
                 maxLength={1}
                 value={value}
-                onChangeText={(text) => handleDigitChange(text, onChange, digit3Ref)}
+                onChangeText={text =>
+                  handleDigitChange(text, onChange, digit3Ref)
+                }
                 testID="digit2-input"
               />
             )}
@@ -218,7 +222,7 @@ const VerificationScreen = () => {
           <Controller
             control={control}
             name="digit3"
-            render={({ field: { onChange, value } }) => (
+            render={({field: {onChange, value}}) => (
               <TextInput
                 ref={digit3Ref}
                 style={[
@@ -228,7 +232,9 @@ const VerificationScreen = () => {
                 keyboardType="number-pad"
                 maxLength={1}
                 value={value}
-                onChangeText={(text) => handleDigitChange(text, onChange, digit4Ref)}
+                onChangeText={text =>
+                  handleDigitChange(text, onChange, digit4Ref)
+                }
                 testID="digit3-input"
               />
             )}
@@ -237,7 +243,7 @@ const VerificationScreen = () => {
           <Controller
             control={control}
             name="digit4"
-            render={({ field: { onChange, value } }) => (
+            render={({field: {onChange, value}}) => (
               <TextInput
                 ref={digit4Ref}
                 style={[
@@ -247,7 +253,7 @@ const VerificationScreen = () => {
                 keyboardType="number-pad"
                 maxLength={1}
                 value={value}
-                onChangeText={(text) => handleDigitChange(text, onChange)}
+                onChangeText={text => handleDigitChange(text, onChange)}
                 testID="digit4-input"
               />
             )}
@@ -257,15 +263,13 @@ const VerificationScreen = () => {
         <TouchableOpacity
           style={dynamicStyles.button}
           onPress={handleSubmit(onSubmit)}
-          testID="verify-button"
-        >
+          testID="verify-button">
           <Text style={dynamicStyles.buttonText}>Verify</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={dynamicStyles.resendContainer}
-          testID="resend-button"
-        >
+          testID="resend-button">
           <Text style={dynamicStyles.resendText}>Resend Code</Text>
         </TouchableOpacity>
       </View>
@@ -274,4 +278,3 @@ const VerificationScreen = () => {
 };
 
 export default VerificationScreen;
-};
