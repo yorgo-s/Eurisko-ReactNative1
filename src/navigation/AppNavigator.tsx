@@ -1,5 +1,4 @@
 import React, {useContext} from 'react';
-import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 
 import SignUpScreen from '../screens/auth/SignUpScreen';
@@ -55,11 +54,7 @@ const ProductStack = () => {
 const AppNavigator = () => {
   const {isLoggedIn} = useContext(AuthContext);
 
-  return (
-    <NavigationContainer>
-      {isLoggedIn ? <ProductStack /> : <AuthStack />}
-    </NavigationContainer>
-  );
+  return isLoggedIn ? <ProductStack /> : <AuthStack />;
 };
 
 export default AppNavigator;

@@ -47,7 +47,7 @@ const ProductsScreen = () => {
     const loadProducts = async () => {
       try {
         // In a real app, we'd fetch from an API
-        // For this assignment, we'll use the static data
+        // For this assignment, we'll use the static data from the root Products.json file
         const productsJson = require('../../../Products.json');
         setProducts(productsJson.data);
         setIsLoading(false);

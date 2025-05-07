@@ -129,6 +129,35 @@
 // });
 
 // export default App;
+// import React from 'react';
+// import {SafeAreaView, StatusBar, StyleSheet} from 'react-native';
+// import {NavigationContainer} from '@react-navigation/native';
+// import AppNavigator from './src/navigation/AppNavigator';
+// import {AuthProvider} from './src/context/AuthContext';
+// import {ThemeProvider} from './src/context/ThemeContext';
+// import 'react-native-gesture-handler';
+
+// function App(): React.JSX.Element {
+//   return (
+//     <SafeAreaView style={styles.container}>
+//       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+//       <AuthProvider>
+//         <ThemeProvider>
+//           <AppNavigator />
+//         </ThemeProvider>
+//       </AuthProvider>
+//     </SafeAreaView>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//   },
+// });
+
+// export default App;
+
 import React from 'react';
 import {SafeAreaView, StatusBar, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
@@ -143,7 +172,9 @@ function App(): React.JSX.Element {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <AuthProvider>
         <ThemeProvider>
-          <AppNavigator />
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
         </ThemeProvider>
       </AuthProvider>
     </SafeAreaView>
