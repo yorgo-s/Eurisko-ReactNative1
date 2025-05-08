@@ -1,3 +1,5 @@
+// src/screens/auth/VerificationScreen.tsx
+
 import React, {useContext, useRef} from 'react';
 import {
   View,
@@ -41,7 +43,8 @@ type VerificationFormData = z.infer<typeof verificationSchema>;
 const VerificationScreen = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<AuthStackParamList, 'Verification'>>();
-  const {colors, isDarkMode} = useContext(ThemeContext);
+  const {colors, isDarkMode, typography, getFontStyle} =
+    useContext(ThemeContext);
   const email = route.params?.email || 'your email';
   const insets = useSafeAreaInsets();
 
@@ -110,20 +113,17 @@ const VerificationScreen = () => {
       alignItems: 'center',
     },
     title: {
-      fontSize: normalize(24),
-      fontWeight: 'bold',
-      color: colors.text,
+      ...typography.heading2,
       marginBottom: normalize(8),
       textAlign: 'center',
     },
     subtitle: {
-      fontSize: normalize(16),
-      color: colors.text,
+      ...typography.body,
       marginBottom: normalize(40),
       textAlign: 'center',
     },
     emailText: {
-      fontWeight: 'bold',
+      ...getFontStyle('bold', normalize(16)),
       color: colors.primary,
     },
     digitContainer: {
@@ -139,9 +139,8 @@ const VerificationScreen = () => {
       borderColor: colors.border,
       borderRadius: normalize(8),
       textAlign: 'center',
-      fontSize: normalize(24),
+      ...getFontStyle('semiBold', normalize(24)),
       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
-      color: colors.text,
     },
     digitInputError: {
       borderColor: colors.error,
@@ -156,16 +155,15 @@ const VerificationScreen = () => {
       maxWidth: 280,
     },
     buttonText: {
+      ...getFontStyle('semiBold', normalize(16)),
       color: '#FFFFFF',
-      fontSize: normalize(16),
-      fontWeight: 'bold',
     },
     resendContainer: {
       marginTop: normalize(24),
     },
     resendText: {
+      ...getFontStyle('medium', normalize(16)),
       color: colors.primary,
-      fontSize: normalize(16),
     },
   });
 

@@ -19,7 +19,7 @@ type ProductCardProps = {
 };
 
 const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
-  const {colors, isDarkMode} = useContext(ThemeContext);
+  const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
   const {width: windowWidth} = useWindowDimensions();
 
   // Calculate item width based on current window width and number of columns
@@ -41,7 +41,7 @@ const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
     },
     imageContainer: {
       width: '100%',
-      height: numColumns > 2 ? 120 : 140, // Smaller height in landscape
+      height: numColumns > 2 ? 120 : 140,
       backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F5F7',
     },
     image: {
@@ -53,17 +53,13 @@ const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
       padding: 12,
     },
     title: {
-      fontSize: 14, // Fixed font size
-      fontWeight: '600',
-      color: colors.text,
+      ...getFontStyle('bold', 17),
       marginBottom: 4,
-      // Limit to 2 lines with fixed height
-      lineHeight: 18,
-      height: 36,
+      lineHeight: 20,
+      height: 40,
     },
     price: {
-      fontSize: 14, // Fixed font size
-      fontWeight: '700',
+      ...getFontStyle('bold', 16),
       color: colors.primary,
     },
   });

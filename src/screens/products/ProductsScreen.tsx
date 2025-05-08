@@ -30,7 +30,8 @@ export type Product = {
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
-  const {colors, isDarkMode, toggleTheme} = useContext(ThemeContext);
+  const {colors, isDarkMode, toggleTheme, typography, getFontStyle} =
+    useContext(ThemeContext);
   const {logout} = useContext(AuthContext);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,9 +87,7 @@ const ProductsScreen = () => {
       borderBottomColor: colors.border,
     },
     title: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: colors.text,
+      ...typography.heading2,
     },
     rightButtons: {
       flexDirection: 'row',
@@ -97,6 +96,9 @@ const ProductsScreen = () => {
       marginLeft: 16,
       padding: 8,
     },
+    iconText: {
+      ...getFontStyle('regular', 20),
+    },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',
@@ -104,8 +106,7 @@ const ProductsScreen = () => {
       paddingTop: insets.top,
     },
     loadingText: {
-      fontSize: 16,
-      color: colors.text,
+      ...typography.body,
     },
     emptyContainer: {
       flex: 1,
@@ -115,8 +116,7 @@ const ProductsScreen = () => {
       paddingTop: Math.max(20, insets.top),
     },
     emptyText: {
-      fontSize: 16,
-      color: colors.text,
+      ...typography.body,
       textAlign: 'center',
     },
     list: {
@@ -167,15 +167,13 @@ const ProductsScreen = () => {
             style={styles.iconButton}
             onPress={toggleTheme}
             testID="theme-toggle-button">
-            <Text style={{color: colors.text, fontSize: 18}}>
-              {isDarkMode ? '☀️' : '🌙'}
-            </Text>
+            <Text style={styles.iconText}>{isDarkMode ? '☀️' : '🌙'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={handleLogout}
             testID="logout-button">
-            <Text style={{color: colors.text, fontSize: 18}}>🚪</Text>
+            <Text style={styles.iconText}>🚪</Text>
           </TouchableOpacity>
         </View>
       </View>

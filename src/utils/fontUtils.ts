@@ -1,3 +1,5 @@
+// src/utils/fontUtils.ts
+
 import {Platform, TextStyle} from 'react-native';
 
 // Define font family names
@@ -30,17 +32,17 @@ export const fontWeight: {[key in FontWeight]: TextStyle['fontWeight']} = {
   bold: '700',
 };
 
-// Define font sizes
+// Define font sizes (INCREASED all values)
 export const fontSize = {
-  xs: 10,
-  sm: 12,
-  md: 14,
-  lg: 16,
-  xl: 18,
-  xxl: 20,
-  xxxl: 24,
-  heading: 28,
-  title: 32,
+  xs: 12, // Was 10
+  sm: 14, // Was 12
+  md: 16, // Was 14
+  lg: 18, // Was 16
+  xl: 20, // Was 18
+  xxl: 22, // Was 20
+  xxxl: 26, // Was 24
+  heading: 30, // Was 28
+  title: 34, // Was 32
 };
 
 // Helper function to get font style
@@ -48,12 +50,18 @@ export const getFont = (
   weight: FontWeight = 'regular',
   size: number = fontSize.md,
 ): TextStyle => {
-  return {
-    fontFamily: fontFamily[weight],
-    fontSize: size,
-    // On Android, we also need to set fontWeight
-    ...(Platform.OS === 'android' && {fontWeight: fontWeight[weight]}),
-  };
+  // On iOS, we just need the fontFamily
+  // On Android, we also set fontWeight for proper rendering
+  return Platform.OS === 'ios'
+    ? {
+        fontFamily: fontFamily[weight],
+        fontSize: size,
+      }
+    : {
+        fontFamily: fontFamily[weight],
+        fontWeight: fontWeight[weight],
+        fontSize: size,
+      };
 };
 
 // Typography styles for consistent text appearance

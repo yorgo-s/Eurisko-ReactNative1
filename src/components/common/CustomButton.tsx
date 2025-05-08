@@ -1,3 +1,5 @@
+// src/components/common/CustomButton.tsx
+
 import React, {useContext} from 'react';
 import {
   TouchableOpacity,
@@ -38,7 +40,7 @@ const CustomButton = ({
   testID,
   ...props
 }: CustomButtonProps) => {
-  const {colors, isDarkMode} = useContext(ThemeContext);
+  const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
 
   const dynamicStyles = StyleSheet.create({
     button: {
@@ -52,9 +54,8 @@ const CustomButton = ({
       opacity: disabled ? 0.7 : 1,
     },
     buttonText: {
+      ...getFontStyle('semiBold', normalize(16)),
       color: isPrimary ? '#FFFFFF' : colors.text,
-      fontSize: normalize(16),
-      fontWeight: '600',
     },
   });
 

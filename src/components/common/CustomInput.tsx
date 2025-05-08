@@ -1,3 +1,5 @@
+// src/components/common/CustomInput.tsx
+
 import React, {useContext} from 'react';
 import {
   View,
@@ -39,29 +41,28 @@ const CustomInput = ({
   testID,
   ...props
 }: CustomInputProps) => {
-  const {colors, isDarkMode} = useContext(ThemeContext);
+  const {colors, isDarkMode, typography, getFontStyle} =
+    useContext(ThemeContext);
 
   const dynamicStyles = StyleSheet.create({
     container: {
       marginBottom: normalize(16),
     },
     label: {
-      fontSize: normalize(16),
-      color: colors.text,
+      ...typography.label,
       marginBottom: normalize(8),
     },
     input: {
       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
       borderRadius: normalize(8),
       padding: normalize(12),
-      fontSize: normalize(16),
-      color: colors.text,
+      ...getFontStyle('regular', normalize(16)),
       borderWidth: 1,
       borderColor: error ? colors.error : 'transparent',
     },
     errorText: {
+      ...typography.caption,
       color: colors.error,
-      fontSize: normalize(14),
       marginTop: normalize(4),
     },
   });

@@ -1,3 +1,5 @@
+// src/navigation/AppNavigator.tsx
+
 import React, {useContext} from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 
@@ -12,7 +14,7 @@ import {ThemeContext} from '../context/ThemeContext';
 const Stack = createStackNavigator();
 
 const AuthStack = () => {
-  const {colors} = useContext(ThemeContext);
+  const {colors, getFontStyle} = useContext(ThemeContext);
 
   return (
     <Stack.Navigator
@@ -27,7 +29,7 @@ const AuthStack = () => {
         },
         headerTintColor: colors.text,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          ...getFontStyle('bold', 18),
         },
       }}>
       <Stack.Screen
@@ -50,7 +52,7 @@ const AuthStack = () => {
 };
 
 const ProductStack = () => {
-  const {colors} = useContext(ThemeContext);
+  const {colors, getFontStyle} = useContext(ThemeContext);
 
   return (
     <Stack.Navigator
@@ -64,7 +66,7 @@ const ProductStack = () => {
         },
         headerTintColor: colors.text,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          ...getFontStyle('bold', 18),
         },
       }}>
       <Stack.Screen

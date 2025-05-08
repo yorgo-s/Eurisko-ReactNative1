@@ -1,3 +1,5 @@
+// src/screens/auth/SignUpScreen.tsx
+
 import React, {useContext} from 'react';
 import {
   View,
@@ -48,7 +50,8 @@ type SignUpFormData = z.infer<typeof signupSchema>;
 
 const SignUpScreen = () => {
   const navigation = useNavigation();
-  const {colors, isDarkMode} = useContext(ThemeContext);
+  const {colors, isDarkMode, typography, getFontStyle} =
+    useContext(ThemeContext);
   const insets = useSafeAreaInsets();
 
   const {
@@ -85,9 +88,7 @@ const SignUpScreen = () => {
       paddingTop: Math.max(normalize(20), insets.top),
     },
     title: {
-      fontSize: normalize(28),
-      fontWeight: 'bold',
-      color: colors.text,
+      ...typography.heading1,
       marginTop: normalize(20),
       marginBottom: normalize(24),
       textAlign: 'center',
@@ -96,20 +97,18 @@ const SignUpScreen = () => {
       marginBottom: normalize(16),
     },
     label: {
-      fontSize: normalize(16),
-      color: colors.text,
+      ...typography.label,
       marginBottom: normalize(8),
     },
     input: {
       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
       borderRadius: normalize(8),
       padding: normalize(12),
-      fontSize: normalize(16),
-      color: colors.text,
+      ...getFontStyle('regular', normalize(16)),
     },
     errorText: {
+      ...typography.caption,
       color: colors.error,
-      fontSize: normalize(14),
       marginTop: normalize(4),
     },
     button: {
@@ -120,17 +119,16 @@ const SignUpScreen = () => {
       marginTop: normalize(20),
     },
     buttonText: {
+      ...getFontStyle('semiBold', normalize(16)),
       color: '#FFFFFF',
-      fontSize: normalize(16),
-      fontWeight: 'bold',
     },
     linkContainer: {
       marginTop: normalize(24),
       alignItems: 'center',
     },
     linkText: {
+      ...getFontStyle('medium', normalize(16)),
       color: colors.primary,
-      fontSize: normalize(16),
     },
   });
 

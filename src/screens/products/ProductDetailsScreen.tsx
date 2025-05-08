@@ -20,7 +20,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const ProductDetailsScreen = () => {
   const route = useRoute<RouteProp<ProductStackParamList, 'ProductDetails'>>();
-  const {colors, isDarkMode} = useContext(ThemeContext);
+  const {colors, isDarkMode, typography, getFontStyle} =
+    useContext(ThemeContext);
   const product = route.params;
   const insets = useSafeAreaInsets();
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
@@ -73,26 +74,22 @@ const ProductDetailsScreen = () => {
       width: isLandscape ? '50%' : '100%',
     },
     title: {
-      fontSize: 22,
-      fontWeight: 'bold',
-      color: colors.text,
+      ...typography.heading2,
       marginBottom: 8,
     },
     price: {
-      fontSize: 18,
-      fontWeight: '600',
+      ...getFontStyle('semiBold', 22),
       color: colors.primary,
       marginBottom: 16,
     },
     descriptionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 8,
+      ...typography.subtitle,
+      fontSize: 20, // Larger subtitle (derived from typography)
+      marginBottom: 8, // More space (was 8)
     },
     description: {
-      fontSize: 14,
-      color: colors.text,
+      ...typography.body,
+      fontSize: 17,
       lineHeight: 20,
       marginBottom: 20,
     },
@@ -111,9 +108,7 @@ const ProductDetailsScreen = () => {
       marginRight: 8,
     },
     shareButtonText: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: '600',
+      ...getFontStyle('semiBold', 18),
     },
     addToCartButton: {
       backgroundColor: colors.primary,
@@ -125,9 +120,8 @@ const ProductDetailsScreen = () => {
       marginLeft: 8,
     },
     addToCartButtonText: {
+      ...getFontStyle('semiBold', 18),
       color: '#FFFFFF',
-      fontSize: 14,
-      fontWeight: '600',
     },
   });
 
