@@ -9,11 +9,13 @@ import {
   Dimensions,
   PixelRatio,
   Share,
+  StatusBar,
 } from 'react-native';
 import {useRoute, RouteProp} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from './ProductsScreen';
 import {ProductStackParamList} from '../../navigation/types';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 // Get screen dimensions for responsive design
 const {width, height} = Dimensions.get('window');
@@ -29,6 +31,7 @@ const ProductDetailsScreen = () => {
   const route = useRoute<RouteProp<ProductStackParamList, 'ProductDetails'>>();
   const {colors, isDarkMode} = useContext(ThemeContext);
   const product = route.params;
+  const insets = useSafeAreaInsets();
 
   const handleShare = async () => {
     try {
@@ -128,48 +131,54 @@ const ProductDetailsScreen = () => {
   });
 
   return (
-    <ScrollView
-      style={dynamicStyles.container}
-      contentContainerStyle={dynamicStyles.scrollContent}
-      testID="product-details-scroll">
-      <View style={dynamicStyles.imageContainer}>
-        <Image
-          source={{uri: product.images[0]?.url}}
-          style={dynamicStyles.image}
-          testID="product-image"
-        />
-      </View>
-
-      <View style={dynamicStyles.contentContainer}>
-        <Text style={dynamicStyles.title} testID="product-title">
-          {product.title}
-        </Text>
-        <Text style={dynamicStyles.price} testID="product-price">
-          ${product.price.toFixed(2)}
-        </Text>
-
-        <Text style={dynamicStyles.descriptionTitle}>Description</Text>
-        <Text style={dynamicStyles.description} testID="product-description">
-          {product.description}
-        </Text>
-
-        <View style={dynamicStyles.buttonsContainer}>
-          <TouchableOpacity
-            style={dynamicStyles.shareButton}
-            onPress={handleShare}
-            testID="share-button">
-            <Text style={dynamicStyles.shareButtonText}>Share</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={dynamicStyles.addToCartButton}
-            onPress={handleAddToCart}
-            testID="add-to-cart-button">
-            <Text style={dynamicStyles.addToCartButtonText}>Add to Cart</Text>
-          </TouchableOpacity>
+    <View style={dynamicStyles.container}>
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
+      <ScrollView
+        style={dynamicStyles.container}
+        contentContainerStyle={dynamicStyles.scrollContent}
+        testID="product-details-scroll">
+        <View style={dynamicStyles.imageContainer}>
+          <Image
+            source={{uri: product.images[0]?.url}}
+            style={dynamicStyles.image}
+            testID="product-image"
+          />
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={dynamicStyles.contentContainer}>
+          <Text style={dynamicStyles.title} testID="product-title">
+            {product.title}
+          </Text>
+          <Text style={dynamicStyles.price} testID="product-price">
+            ${product.price.toFixed(2)}
+          </Text>
+
+          <Text style={dynamicStyles.descriptionTitle}>Description</Text>
+          <Text style={dynamicStyles.description} testID="product-description">
+            {product.description}
+          </Text>
+
+          <View style={dynamicStyles.buttonsContainer}>
+            <TouchableOpacity
+              style={dynamicStyles.shareButton}
+              onPress={handleShare}
+              testID="share-button">
+              <Text style={dynamicStyles.shareButtonText}>Share</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={dynamicStyles.addToCartButton}
+              onPress={handleAddToCart}
+              testID="add-to-cart-button">
+              <Text style={dynamicStyles.addToCartButtonText}>Add to Cart</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 

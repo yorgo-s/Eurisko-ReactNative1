@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Dimensions,
   PixelRatio,
+  StatusBar,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {AuthContext} from '../../context/AuthContext';
 import ProductCard from '../../components/products/ProductCard';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
@@ -41,6 +43,7 @@ const ProductsScreen = () => {
   const {logout} = useContext(AuthContext);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     // Load products from the static data
@@ -80,6 +83,7 @@ const ProductsScreen = () => {
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: normalize(16),
+      paddingTop: Math.max(normalize(10), insets.top - 25),
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
@@ -98,6 +102,7 @@ const ProductsScreen = () => {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+      paddingTop: insets.top,
     },
     loadingText: {
       fontSize: normalize(16),
@@ -108,6 +113,7 @@ const ProductsScreen = () => {
       justifyContent: 'center',
       alignItems: 'center',
       padding: normalize(20),
+      paddingTop: Math.max(normalize(20), insets.top),
     },
     emptyText: {
       fontSize: normalize(16),
@@ -121,24 +127,40 @@ const ProductsScreen = () => {
 
   if (isLoading) {
     return (
-      <View style={[dynamicStyles.container, dynamicStyles.loadingContainer]}>
+      <SafeAreaView
+        style={[dynamicStyles.container, dynamicStyles.loadingContainer]}
+        edges={['top']}>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
         <Text style={dynamicStyles.loadingText}>Loading products...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (products.length === 0) {
     return (
-      <View style={[dynamicStyles.container, dynamicStyles.emptyContainer]}>
+      <SafeAreaView
+        style={[dynamicStyles.container, dynamicStyles.emptyContainer]}
+        edges={['top']}>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
         <Text style={dynamicStyles.emptyText}>
           No products found. Check back later!
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={dynamicStyles.container}>
+    <SafeAreaView style={dynamicStyles.container} edges={['top']}>
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
       <View style={dynamicStyles.header}>
         <Text style={dynamicStyles.title}>All Products</Text>
         <View style={dynamicStyles.rightButtons}>
@@ -170,7 +192,7 @@ const ProductsScreen = () => {
         contentContainerStyle={dynamicStyles.list}
         testID="products-list"
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

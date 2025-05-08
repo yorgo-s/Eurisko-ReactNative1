@@ -16,6 +16,7 @@ import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
 import {AuthStackParamList} from '../../navigation/types';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
@@ -42,6 +43,7 @@ const VerificationScreen = () => {
   const route = useRoute<RouteProp<AuthStackParamList, 'Verification'>>();
   const {colors, isDarkMode} = useContext(ThemeContext);
   const email = route.params?.email || 'your email';
+  const insets = useSafeAreaInsets();
 
   // References for TextInputs to enable auto-focus on next input
   const digit2Ref = useRef<TextInput>(null);
@@ -104,6 +106,7 @@ const VerificationScreen = () => {
       flex: 1,
       justifyContent: 'center',
       padding: normalize(20),
+      paddingTop: Math.max(normalize(20), insets.top),
       alignItems: 'center',
     },
     title: {
@@ -167,114 +170,116 @@ const VerificationScreen = () => {
   });
 
   return (
-    <KeyboardAvoidingView
-      style={dynamicStyles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={dynamicStyles.content}>
-        <Text style={dynamicStyles.title}>Verification Code</Text>
-        <Text style={dynamicStyles.subtitle}>
-          We've sent a code to{' '}
-          <Text style={dynamicStyles.emailText}>{email}</Text>
-        </Text>
+    <SafeAreaView style={dynamicStyles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={dynamicStyles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={dynamicStyles.content}>
+          <Text style={dynamicStyles.title}>Verification Code</Text>
+          <Text style={dynamicStyles.subtitle}>
+            We've sent a code to{' '}
+            <Text style={dynamicStyles.emailText}>{email}</Text>
+          </Text>
 
-        <View style={dynamicStyles.digitContainer}>
-          <Controller
-            control={control}
-            name="digit1"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                style={[
-                  dynamicStyles.digitInput,
-                  errors.digit1 && dynamicStyles.digitInputError,
-                ]}
-                keyboardType="number-pad"
-                maxLength={1}
-                value={value}
-                onChangeText={text =>
-                  handleDigitChange(text, onChange, digit2Ref)
-                }
-                autoFocus
-                testID="digit1-input"
-              />
-            )}
-          />
+          <View style={dynamicStyles.digitContainer}>
+            <Controller
+              control={control}
+              name="digit1"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  style={[
+                    dynamicStyles.digitInput,
+                    errors.digit1 && dynamicStyles.digitInputError,
+                  ]}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  value={value}
+                  onChangeText={text =>
+                    handleDigitChange(text, onChange, digit2Ref)
+                  }
+                  autoFocus
+                  testID="digit1-input"
+                />
+              )}
+            />
 
-          <Controller
-            control={control}
-            name="digit2"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                ref={digit2Ref}
-                style={[
-                  dynamicStyles.digitInput,
-                  errors.digit2 && dynamicStyles.digitInputError,
-                ]}
-                keyboardType="number-pad"
-                maxLength={1}
-                value={value}
-                onChangeText={text =>
-                  handleDigitChange(text, onChange, digit3Ref)
-                }
-                testID="digit2-input"
-              />
-            )}
-          />
+            <Controller
+              control={control}
+              name="digit2"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  ref={digit2Ref}
+                  style={[
+                    dynamicStyles.digitInput,
+                    errors.digit2 && dynamicStyles.digitInputError,
+                  ]}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  value={value}
+                  onChangeText={text =>
+                    handleDigitChange(text, onChange, digit3Ref)
+                  }
+                  testID="digit2-input"
+                />
+              )}
+            />
 
-          <Controller
-            control={control}
-            name="digit3"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                ref={digit3Ref}
-                style={[
-                  dynamicStyles.digitInput,
-                  errors.digit3 && dynamicStyles.digitInputError,
-                ]}
-                keyboardType="number-pad"
-                maxLength={1}
-                value={value}
-                onChangeText={text =>
-                  handleDigitChange(text, onChange, digit4Ref)
-                }
-                testID="digit3-input"
-              />
-            )}
-          />
+            <Controller
+              control={control}
+              name="digit3"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  ref={digit3Ref}
+                  style={[
+                    dynamicStyles.digitInput,
+                    errors.digit3 && dynamicStyles.digitInputError,
+                  ]}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  value={value}
+                  onChangeText={text =>
+                    handleDigitChange(text, onChange, digit4Ref)
+                  }
+                  testID="digit3-input"
+                />
+              )}
+            />
 
-          <Controller
-            control={control}
-            name="digit4"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                ref={digit4Ref}
-                style={[
-                  dynamicStyles.digitInput,
-                  errors.digit4 && dynamicStyles.digitInputError,
-                ]}
-                keyboardType="number-pad"
-                maxLength={1}
-                value={value}
-                onChangeText={text => handleDigitChange(text, onChange)}
-                testID="digit4-input"
-              />
-            )}
-          />
+            <Controller
+              control={control}
+              name="digit4"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  ref={digit4Ref}
+                  style={[
+                    dynamicStyles.digitInput,
+                    errors.digit4 && dynamicStyles.digitInputError,
+                  ]}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  value={value}
+                  onChangeText={text => handleDigitChange(text, onChange)}
+                  testID="digit4-input"
+                />
+              )}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={dynamicStyles.button}
+            onPress={handleSubmit(onSubmit)}
+            testID="verify-button">
+            <Text style={dynamicStyles.buttonText}>Verify</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={dynamicStyles.resendContainer}
+            testID="resend-button">
+            <Text style={dynamicStyles.resendText}>Resend Code</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={dynamicStyles.button}
-          onPress={handleSubmit(onSubmit)}
-          testID="verify-button">
-          <Text style={dynamicStyles.buttonText}>Verify</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={dynamicStyles.resendContainer}
-          testID="resend-button">
-          <Text style={dynamicStyles.resendText}>Resend Code</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
