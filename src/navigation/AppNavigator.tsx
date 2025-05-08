@@ -38,7 +38,7 @@ const ProductStack = () => {
       <Stack.Screen
         name="Products"
         component={ProductsScreen}
-        options={{title: 'All Products'}}
+        options={{title: 'All Products', headerShown: false}}
       />
       <Stack.Screen
         name="ProductDetails"

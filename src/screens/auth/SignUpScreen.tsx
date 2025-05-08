@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import {useForm, Controller} from 'react-hook-form';
 import {z} from 'zod';
@@ -15,6 +16,7 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AuthStackParamList} from '../../navigation/types';
 
 // Get screen dimensions for responsive design
@@ -47,6 +49,7 @@ type SignUpFormData = z.infer<typeof signupSchema>;
 const SignUpScreen = () => {
   const navigation = useNavigation();
   const {colors, isDarkMode} = useContext(ThemeContext);
+  const insets = useSafeAreaInsets();
 
   const {
     control,
@@ -69,17 +72,23 @@ const SignUpScreen = () => {
   };
 
   const dynamicStyles = StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
     content: {
       padding: normalize(20),
+      paddingTop: Math.max(normalize(20), insets.top),
     },
     title: {
       fontSize: normalize(28),
       fontWeight: 'bold',
       color: colors.text,
+      marginTop: normalize(20),
       marginBottom: normalize(24),
       textAlign: 'center',
     },
@@ -126,123 +135,131 @@ const SignUpScreen = () => {
   });
 
   return (
-    <KeyboardAvoidingView
-      style={dynamicStyles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
-      <ScrollView contentContainerStyle={dynamicStyles.content}>
-        <Text style={dynamicStyles.title}>Create Account</Text>
+    <SafeAreaView style={dynamicStyles.safeArea} edges={['top']}>
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
+      <KeyboardAvoidingView
+        style={dynamicStyles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+        <ScrollView contentContainerStyle={dynamicStyles.content}>
+          <Text style={dynamicStyles.title}>Create Account</Text>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Name</Text>
-          <Controller
-            control={control}
-            name="name"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Enter your full name"
-                placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-                value={value}
-                onChangeText={onChange}
-                testID="name-input"
-              />
+          <View style={dynamicStyles.inputContainer}>
+            <Text style={dynamicStyles.label}>Name</Text>
+            <Controller
+              control={control}
+              name="name"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  style={dynamicStyles.input}
+                  placeholder="Enter your full name"
+                  placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+                  value={value}
+                  onChangeText={onChange}
+                  testID="name-input"
+                />
+              )}
+            />
+            {errors.name && (
+              <Text style={dynamicStyles.errorText}>{errors.name.message}</Text>
             )}
-          />
-          {errors.name && (
-            <Text style={dynamicStyles.errorText}>{errors.name.message}</Text>
-          )}
-        </View>
+          </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Email</Text>
-          <Controller
-            control={control}
-            name="email"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Enter your email"
-                placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-                value={value}
-                onChangeText={onChange}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                testID="email-input"
-              />
+          <View style={dynamicStyles.inputContainer}>
+            <Text style={dynamicStyles.label}>Email</Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  style={dynamicStyles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+                  value={value}
+                  onChangeText={onChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  testID="email-input"
+                />
+              )}
+            />
+            {errors.email && (
+              <Text style={dynamicStyles.errorText}>
+                {errors.email.message}
+              </Text>
             )}
-          />
-          {errors.email && (
-            <Text style={dynamicStyles.errorText}>{errors.email.message}</Text>
-          )}
-        </View>
+          </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Password</Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Create a password"
-                placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-                value={value}
-                onChangeText={onChange}
-                secureTextEntry
-                testID="password-input"
-              />
+          <View style={dynamicStyles.inputContainer}>
+            <Text style={dynamicStyles.label}>Password</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  style={dynamicStyles.input}
+                  placeholder="Create a password"
+                  placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+                  value={value}
+                  onChangeText={onChange}
+                  secureTextEntry
+                  testID="password-input"
+                />
+              )}
+            />
+            {errors.password && (
+              <Text style={dynamicStyles.errorText}>
+                {errors.password.message}
+              </Text>
             )}
-          />
-          {errors.password && (
-            <Text style={dynamicStyles.errorText}>
-              {errors.password.message}
-            </Text>
-          )}
-        </View>
+          </View>
 
-        <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Phone Number</Text>
-          <Controller
-            control={control}
-            name="phoneNumber"
-            render={({field: {onChange, value}}) => (
-              <TextInput
-                style={dynamicStyles.input}
-                placeholder="Enter your phone number"
-                placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-                value={value}
-                onChangeText={onChange}
-                keyboardType="phone-pad"
-                testID="phone-input"
-              />
+          <View style={dynamicStyles.inputContainer}>
+            <Text style={dynamicStyles.label}>Phone Number</Text>
+            <Controller
+              control={control}
+              name="phoneNumber"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  style={dynamicStyles.input}
+                  placeholder="Enter your phone number"
+                  placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+                  value={value}
+                  onChangeText={onChange}
+                  keyboardType="phone-pad"
+                  testID="phone-input"
+                />
+              )}
+            />
+            {errors.phoneNumber && (
+              <Text style={dynamicStyles.errorText}>
+                {errors.phoneNumber.message}
+              </Text>
             )}
-          />
-          {errors.phoneNumber && (
-            <Text style={dynamicStyles.errorText}>
-              {errors.phoneNumber.message}
-            </Text>
-          )}
-        </View>
+          </View>
 
-        <TouchableOpacity
-          style={dynamicStyles.button}
-          onPress={handleSubmit(onSubmit)}
-          testID="signup-button">
-          <Text style={dynamicStyles.buttonText}>Sign Up</Text>
-        </TouchableOpacity>
-
-        <View style={dynamicStyles.linkContainer}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('Login')}
-            testID="login-link">
-            <Text style={dynamicStyles.linkText}>
-              Already have an account? Log in
-            </Text>
+            style={dynamicStyles.button}
+            onPress={handleSubmit(onSubmit)}
+            testID="signup-button">
+            <Text style={dynamicStyles.buttonText}>Sign Up</Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <View style={dynamicStyles.linkContainer}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              testID="login-link">
+              <Text style={dynamicStyles.linkText}>
+                Already have an account? Log in
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
