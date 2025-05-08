@@ -1,3 +1,5 @@
+// src/components/products/ProductCard.tsx
+
 import React, {useContext} from 'react';
 import {
   View,
@@ -5,36 +7,30 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  PixelRatio,
+  useWindowDimensions,
 } from 'react-native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from '../../screens/products/ProductsScreen';
 
-// Get screen dimensions for responsive design
-const {width} = Dimensions.get('window');
-const scale = width / 375;
-const itemWidth = (width - normalize(36)) / 2; // Two columns with padding
-
-// Function to normalize font size based on screen width
-function normalize(size: number) {
-  const newSize = size * scale;
-  return Math.round(PixelRatio.roundToNearestPixel(newSize));
-}
-
 type ProductCardProps = {
   product: Product;
   onPress: () => void;
+  numColumns: number;
 };
 
-const ProductCard = ({product, onPress}: ProductCardProps) => {
+const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
   const {colors, isDarkMode} = useContext(ThemeContext);
+  const {width: windowWidth} = useWindowDimensions();
 
-  const dynamicStyles = StyleSheet.create({
+  // Calculate item width based on current window width and number of columns
+  // Including padding/margin to ensure proper spacing
+  const itemWidth = (windowWidth - 16 * (numColumns + 1)) / numColumns;
+
+  const styles = StyleSheet.create({
     container: {
       width: itemWidth,
-      margin: normalize(6),
-      borderRadius: normalize(8),
+      margin: 8,
+      borderRadius: 8,
       backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
       shadowColor: '#000',
       shadowOffset: {width: 0, height: 2},
@@ -45,7 +41,7 @@ const ProductCard = ({product, onPress}: ProductCardProps) => {
     },
     imageContainer: {
       width: '100%',
-      height: normalize(140),
+      height: numColumns > 2 ? 120 : 140, // Smaller height in landscape
       backgroundColor: isDarkMode ? '#1A1A1A' : '#F5F5F7',
     },
     image: {
@@ -54,19 +50,19 @@ const ProductCard = ({product, onPress}: ProductCardProps) => {
       resizeMode: 'contain',
     },
     contentContainer: {
-      padding: normalize(12),
+      padding: 12,
     },
     title: {
-      fontSize: normalize(16),
+      fontSize: 14, // Fixed font size
       fontWeight: '600',
       color: colors.text,
-      marginBottom: normalize(4),
-      // Limit to 2 lines
-      lineHeight: normalize(20),
-      height: normalize(40),
+      marginBottom: 4,
+      // Limit to 2 lines with fixed height
+      lineHeight: 18,
+      height: 36,
     },
     price: {
-      fontSize: normalize(14),
+      fontSize: 14, // Fixed font size
       fontWeight: '700',
       color: colors.primary,
     },
@@ -74,28 +70,26 @@ const ProductCard = ({product, onPress}: ProductCardProps) => {
 
   return (
     <TouchableOpacity
-      style={dynamicStyles.container}
+      style={styles.container}
       onPress={onPress}
       activeOpacity={0.8}
       testID={`product-card-${product._id}`}>
-      <View style={dynamicStyles.imageContainer}>
+      <View style={styles.imageContainer}>
         <Image
           source={{uri: product.images[0]?.url}}
-          style={dynamicStyles.image}
+          style={styles.image}
           testID={`product-image-${product._id}`}
         />
       </View>
-      <View style={dynamicStyles.contentContainer}>
+      <View style={styles.contentContainer}>
         <Text
-          style={dynamicStyles.title}
+          style={styles.title}
           numberOfLines={2}
           ellipsizeMode="tail"
           testID={`product-title-${product._id}`}>
           {product.title}
         </Text>
-        <Text
-          style={dynamicStyles.price}
-          testID={`product-price-${product._id}`}>
+        <Text style={styles.price} testID={`product-price-${product._id}`}>
           ${product.price.toFixed(2)}
         </Text>
       </View>

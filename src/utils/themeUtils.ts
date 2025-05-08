@@ -4,8 +4,9 @@ import {Dimensions, PixelRatio} from 'react-native';
 const {width} = Dimensions.get('window');
 const scale = width / 375; // Base width on standard mobile screen
 
-// Function to normalize font size or spacing based on screen width
-export const normalize = (size: number): number => {
+export const normalize = (size: number, currentWidth?: number): number => {
+  const width = currentWidth || Dimensions.get('window').width;
+  const scale = width / 375; // Base width on standard mobile screen
   const newSize = size * scale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
 };

@@ -1,3 +1,5 @@
+// src/screens/products/ProductsScreen.tsx
+
 import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
@@ -5,25 +7,14 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  PixelRatio,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {AuthContext} from '../../context/AuthContext';
 import ProductCard from '../../components/products/ProductCard';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-
-// Get screen dimensions for responsive design
-const {width} = Dimensions.get('window');
-const scale = width / 375;
-
-// Function to normalize font size based on screen width
-const normalize = (size: number) => {
-  const newSize = size * scale;
-  return Math.round(PixelRatio.roundToNearestPixel(newSize));
-};
 
 // Define the product type
 export type Product = {
@@ -44,6 +35,13 @@ const ProductsScreen = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const insets = useSafeAreaInsets();
+  const {width: windowWidth, height: windowHeight} = useWindowDimensions();
+
+  // Determine if we're in landscape orientation
+  const isLandscape = windowWidth > windowHeight;
+
+  // Determine number of columns based on orientation
+  const numColumns = isLandscape ? 4 : 2;
 
   useEffect(() => {
     // Load products from the static data
@@ -73,7 +71,7 @@ const ProductsScreen = () => {
     logout();
   };
 
-  const dynamicStyles = StyleSheet.create({
+  const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -82,13 +80,13 @@ const ProductsScreen = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: normalize(16),
-      paddingTop: Math.max(normalize(10), insets.top - 25),
+      padding: 16,
+      paddingTop: Math.max(10, insets.top - 25),
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
     title: {
-      fontSize: normalize(20),
+      fontSize: 20,
       fontWeight: 'bold',
       color: colors.text,
     },
@@ -96,7 +94,8 @@ const ProductsScreen = () => {
       flexDirection: 'row',
     },
     iconButton: {
-      marginLeft: normalize(16),
+      marginLeft: 16,
+      padding: 8,
     },
     loadingContainer: {
       flex: 1,
@@ -105,36 +104,36 @@ const ProductsScreen = () => {
       paddingTop: insets.top,
     },
     loadingText: {
-      fontSize: normalize(16),
+      fontSize: 16,
       color: colors.text,
     },
     emptyContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      padding: normalize(20),
-      paddingTop: Math.max(normalize(20), insets.top),
+      padding: 20,
+      paddingTop: Math.max(20, insets.top),
     },
     emptyText: {
-      fontSize: normalize(16),
+      fontSize: 16,
       color: colors.text,
       textAlign: 'center',
     },
     list: {
-      padding: normalize(8),
+      padding: 8,
     },
   });
 
   if (isLoading) {
     return (
       <SafeAreaView
-        style={[dynamicStyles.container, dynamicStyles.loadingContainer]}
+        style={[styles.container, styles.loadingContainer]}
         edges={['top']}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.background}
         />
-        <Text style={dynamicStyles.loadingText}>Loading products...</Text>
+        <Text style={styles.loadingText}>Loading products...</Text>
       </SafeAreaView>
     );
   }
@@ -142,13 +141,13 @@ const ProductsScreen = () => {
   if (products.length === 0) {
     return (
       <SafeAreaView
-        style={[dynamicStyles.container, dynamicStyles.emptyContainer]}
+        style={[styles.container, styles.emptyContainer]}
         edges={['top']}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.background}
         />
-        <Text style={dynamicStyles.emptyText}>
+        <Text style={styles.emptyText}>
           No products found. Check back later!
         </Text>
       </SafeAreaView>
@@ -156,40 +155,44 @@ const ProductsScreen = () => {
   }
 
   return (
-    <SafeAreaView style={dynamicStyles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
-      <View style={dynamicStyles.header}>
-        <Text style={dynamicStyles.title}>All Products</Text>
-        <View style={dynamicStyles.rightButtons}>
+      <View style={styles.header}>
+        <Text style={styles.title}>All Products</Text>
+        <View style={styles.rightButtons}>
           <TouchableOpacity
-            style={dynamicStyles.iconButton}
+            style={styles.iconButton}
             onPress={toggleTheme}
             testID="theme-toggle-button">
-            <Text style={{color: colors.text}}>{isDarkMode ? '☀️' : '🌙'}</Text>
+            <Text style={{color: colors.text, fontSize: 18}}>
+              {isDarkMode ? '☀️' : '🌙'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={dynamicStyles.iconButton}
+            style={styles.iconButton}
             onPress={handleLogout}
             testID="logout-button">
-            <Text style={{color: colors.text}}>🚪</Text>
+            <Text style={{color: colors.text, fontSize: 18}}>🚪</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <FlatList
+        key={`grid-${numColumns}`} // Force re-render when columns change
         data={products}
         keyExtractor={item => item._id}
         renderItem={({item}) => (
           <ProductCard
             product={item}
             onPress={() => handleProductPress(item)}
+            numColumns={numColumns}
           />
         )}
-        numColumns={2}
-        contentContainerStyle={dynamicStyles.list}
+        numColumns={numColumns}
+        contentContainerStyle={styles.list}
         testID="products-list"
       />
     </SafeAreaView>
