@@ -19,6 +19,7 @@ import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {AuthStackParamList} from '../../navigation/types';
 
 // Get screen dimensions for responsive design
@@ -48,8 +49,13 @@ const signupSchema = z.object({
 
 type SignUpFormData = z.infer<typeof signupSchema>;
 
+type SignUpScreenNavigationProp = StackNavigationProp<
+  AuthStackParamList,
+  'SignUp'
+>;
+
 const SignUpScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<SignUpScreenNavigationProp>();
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
   const insets = useSafeAreaInsets();

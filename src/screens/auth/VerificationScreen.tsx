@@ -19,6 +19,7 @@ import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
 import {AuthStackParamList} from '../../navigation/types';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {StackNavigationProp} from '@react-navigation/stack';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
@@ -40,8 +41,13 @@ const verificationSchema = z.object({
 
 type VerificationFormData = z.infer<typeof verificationSchema>;
 
+type VerificationScreenNavigationProp = StackNavigationProp<
+  AuthStackParamList,
+  'Verification'
+>;
+
 const VerificationScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<VerificationScreenNavigationProp>();
   const route = useRoute<RouteProp<AuthStackParamList, 'Verification'>>();
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
@@ -88,7 +94,7 @@ const VerificationScreen = () => {
   const handleDigitChange = (
     text: string,
     onChange: (value: string) => void,
-    nextInputRef?: React.RefObject<TextInput>,
+    nextInputRef?: React.RefObject<TextInput | null>,
   ) => {
     // Only accept a single digit
     const singleDigit = text.slice(0, 1).replace(/[^0-9]/g, '');

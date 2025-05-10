@@ -21,6 +21,8 @@ import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {AuthStackParamList} from '../../navigation/types'; // Define your navigation types here
 
 // Get screen dimensions for responsive design
 const {width, height} = Dimensions.get('window');
@@ -40,8 +42,13 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+type LoginScreenNavigationProp = StackNavigationProp<
+  AuthStackParamList,
+  'Login'
+>;
+
 const LoginScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<LoginScreenNavigationProp>();
   const {login} = useContext(AuthContext);
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
