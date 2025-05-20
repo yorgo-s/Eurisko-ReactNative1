@@ -1,12 +1,11 @@
-// App.tsx
-
 import React, {useEffect, useState} from 'react';
 import {StatusBar, StyleSheet, View, Text} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
-import {AuthProvider} from './src/context/AuthContext';
 import {ThemeProvider} from './src/context/ThemeContext';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {QueryClientProvider} from '@tanstack/react-query';
+import {queryClient} from './src/api/queryClient';
 import 'react-native-gesture-handler';
 
 function App(): React.JSX.Element {
@@ -14,7 +13,6 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     // Simulate font loading
-    // In a real app, you might use a library like Expo Font or react-native-font-loader
     setTimeout(() => {
       setFontLoaded(true);
     }, 100);
@@ -31,13 +29,13 @@ function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <AuthProvider>
+      <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <NavigationContainer>
             <AppNavigator />
           </NavigationContainer>
         </ThemeProvider>
-      </AuthProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
