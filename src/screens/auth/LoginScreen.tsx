@@ -1,6 +1,4 @@
-// src/screens/auth/LoginScreen.tsx
-
-import React, {useContext, useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -12,23 +10,25 @@ import {
   ScrollView,
   Alert,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import {useForm, Controller} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
-import {AuthContext} from '../../context/AuthContext';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/types'; // Define your navigation types here
+import {AuthStackParamList} from '../../navigation/types';
+import {useAuthStore} from '../../store/authStore';
+import {useContext} from 'react';
 
 // Get screen dimensions for responsive design
-const {width, height} = Dimensions.get('window');
-const scale = width / 375; // Base width on standard mobile screen
+const {width} = Dimensions.get('window');
+const scale = width / 375;
 
-// Function to scale font size based on screen width
+// Function to normalize size based on screen width
 const normalize = (size: number) => {
   const newSize = size * scale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
@@ -36,7 +36,7 @@ const normalize = (size: number) => {
 
 // Define validation schema with Zod
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -49,11 +49,12 @@ type LoginScreenNavigationProp = StackNavigationProp<
 
 const LoginScreen = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
-  const {login} = useContext(AuthContext);
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
-  const [isLoading, setIsLoading] = useState(false);
   const insets = useSafeAreaInsets();
+
+  // Use the auth store
+  const {login, isLoading, error, clearError} = useAuthStore();
 
   const {
     control,
@@ -62,25 +63,48 @@ const LoginScreen = () => {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
 
-  const onSubmit = async (data: LoginFormData) => {
-    console.log('Attempting login with:', data.username, data.password);
-    setIsLoading(true);
-    const success = await login(data.username, data.password);
-    setIsLoading(false);
+  // Show error alert when auth error occurs
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Login Error', error, [{text: 'OK', onPress: clearError}]);
+    }
+  }, [error, clearError]);
 
-    if (!success) {
+  // In LoginScreen.tsx, update the onSubmit function:
+
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      console.log('Attempting login with:', data.email);
+      const success = await login(data.email, data.password);
+
+      console.log('Login result:', success);
+
+      if (!success) {
+        if (!error) {
+          // If there's no error from the store but login failed
+          Alert.alert(
+            'Login Failed',
+            'Invalid email or password. Please try again.',
+            [{text: 'OK'}],
+          );
+        }
+      } else {
+        console.log('Login successful!');
+      }
+    } catch (e) {
+      console.error('Login error caught in component:', e);
       Alert.alert(
-        'Login Failed',
-        'Invalid username or password. Remember to use:\nUsername: eurisko\nPassword: academy2025',
-        [{text: 'OK'}],
+        'Error',
+        'An unexpected error occurred: ' +
+          (typeof e === 'object' && e !== null && 'message' in e
+            ? (e as {message?: string}).message
+            : JSON.stringify(e)),
       );
-    } else {
-      console.log('Login successful!');
     }
   };
 
@@ -140,11 +164,6 @@ const LoginScreen = () => {
       ...getFontStyle('medium', normalize(16)),
       color: colors.primary,
     },
-    helpText: {
-      ...typography.body,
-      marginTop: normalize(12),
-      textAlign: 'center',
-    },
   });
 
   return (
@@ -161,25 +180,26 @@ const LoginScreen = () => {
           <Text style={dynamicStyles.title}>Welcome Back</Text>
 
           <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>Username</Text>
+            <Text style={dynamicStyles.label}>Email</Text>
             <Controller
               control={control}
-              name="username"
+              name="email"
               render={({field: {onChange, value}}) => (
                 <TextInput
                   style={dynamicStyles.input}
-                  placeholder="Enter your username"
+                  placeholder="Enter your email"
                   placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
                   value={value}
                   onChangeText={onChange}
                   autoCapitalize="none"
-                  testID="username-input"
+                  keyboardType="email-address"
+                  testID="email-input"
                 />
               )}
             />
-            {errors.username && (
+            {errors.email && (
               <Text style={dynamicStyles.errorText}>
-                {errors.username.message}
+                {errors.email.message}
               </Text>
             )}
           </View>
@@ -209,18 +229,16 @@ const LoginScreen = () => {
           </View>
 
           <TouchableOpacity
-            style={dynamicStyles.button}
+            style={[dynamicStyles.button, isLoading && {opacity: 0.7}]}
             onPress={handleSubmit(onSubmit)}
             disabled={isLoading}
             testID="login-button">
-            <Text style={dynamicStyles.buttonText}>
-              {isLoading ? 'Logging in...' : 'Log In'}
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={dynamicStyles.buttonText}>Log In</Text>
+            )}
           </TouchableOpacity>
-
-          <Text style={dynamicStyles.helpText}>
-            Hint: Use username "eurisko" and password "academy2025"
-          </Text>
 
           <View style={dynamicStyles.linkContainer}>
             <TouchableOpacity

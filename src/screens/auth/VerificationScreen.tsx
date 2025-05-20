@@ -1,6 +1,4 @@
-// src/screens/auth/VerificationScreen.tsx
-
-import React, {useContext, useRef} from 'react';
+import React, {useContext, useRef, useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -10,36 +8,26 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import {useForm, Controller} from 'react-hook-form';
-import {z} from 'zod';
-import {zodResolver} from '@hookform/resolvers/zod';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {Dimensions, PixelRatio} from 'react-native';
 import {AuthStackParamList} from '../../navigation/types';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {useAuthStore} from '../../store/authStore';
+import {authApi} from '../../api/auth';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
 const scale = width / 375;
 
-// Function to normalize font size based on screen width
+// Function to normalize size based on screen width
 const normalize = (size: number) => {
   const newSize = size * scale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
 };
-
-// Define validation schema with Zod
-const verificationSchema = z.object({
-  digit1: z.string().length(1, 'Required').regex(/^\d$/, 'Must be a number'),
-  digit2: z.string().length(1, 'Required').regex(/^\d$/, 'Must be a number'),
-  digit3: z.string().length(1, 'Required').regex(/^\d$/, 'Must be a number'),
-  digit4: z.string().length(1, 'Required').regex(/^\d$/, 'Must be a number'),
-});
-
-type VerificationFormData = z.infer<typeof verificationSchema>;
 
 type VerificationScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -54,55 +42,97 @@ const VerificationScreen = () => {
   const email = route.params?.email || 'your email';
   const insets = useSafeAreaInsets();
 
+  // Use the auth store
+  const {verifyOtp, isLoading, error, clearError} = useAuthStore();
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+
+  // State for OTP input
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+
   // References for TextInputs to enable auto-focus on next input
-  const digit2Ref = useRef<TextInput>(null);
-  const digit3Ref = useRef<TextInput>(null);
-  const digit4Ref = useRef<TextInput>(null);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm<VerificationFormData>({
-    resolver: zodResolver(verificationSchema),
-    defaultValues: {
-      digit1: '',
-      digit2: '',
-      digit3: '',
-      digit4: '',
-    },
-  });
+  // Initialize inputRefs
+  useEffect(() => {
+    inputRefs.current = inputRefs.current.slice(0, 6);
+  }, []);
 
-  const onSubmit = (data: VerificationFormData) => {
-    const code = `${data.digit1}${data.digit2}${data.digit3}${data.digit4}`;
+  // Show error alert when auth error occurs
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Verification Error', error, [
+        {text: 'OK', onPress: clearError},
+      ]);
+    }
 
-    // In a real app, we would verify the code with an API
-    // For this assignment, we'll just show a success message and navigate to login
-    Alert.alert(
-      'Verification Successful',
-      'Your account has been verified successfully.',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('Login'),
-        },
-      ],
-    );
+    if (resendError) {
+      Alert.alert('Resend Error', resendError, [
+        {text: 'OK', onPress: () => setResendError(null)},
+      ]);
+    }
+  }, [error, resendError, clearError]);
+
+  const handleVerify = async () => {
+    const otpString = otp.join('');
+    if (otpString.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter a valid 6-digit code');
+      return;
+    }
+
+    const success = await verifyOtp(email, otpString);
+    if (success) {
+      Alert.alert(
+        'Verification Successful',
+        'Your account has been verified successfully.',
+        [{text: 'OK', onPress: () => navigation.navigate('Login')}],
+      );
+    }
   };
 
-  // Function to handle input and auto-focus on next field
-  const handleDigitChange = (
-    text: string,
-    onChange: (value: string) => void,
-    nextInputRef?: React.RefObject<TextInput | null>,
-  ) => {
-    // Only accept a single digit
-    const singleDigit = text.slice(0, 1).replace(/[^0-9]/g, '');
-    onChange(singleDigit);
+  const handleResendOtp = async () => {
+    try {
+      setResendLoading(true);
+      const response = await authApi.resendVerificationOtp(email);
+      if (response.success) {
+        Alert.alert(
+          'Success',
+          'A new verification code has been sent to your email',
+        );
+      } else {
+        setResendError('Failed to resend verification code');
+      }
+    } catch (error: any) {
+      setResendError(
+        error.response?.data?.error?.message ||
+          'Failed to resend verification code',
+      );
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
-    // Auto focus to next input if this one is filled
-    if (singleDigit && nextInputRef?.current) {
-      nextInputRef.current.focus();
+  // Function to handle input for each digit and auto-focus next field
+  const handleDigitChange = (text: string, index: number) => {
+    if (text.length > 1) {
+      text = text.slice(0, 1);
+    }
+
+    // Update OTP state
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
+
+    // Auto-focus next field if text is entered
+    if (text && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Function to handle backspace and auto-focus previous field
+  const handleKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
@@ -132,14 +162,14 @@ const VerificationScreen = () => {
       ...getFontStyle('bold', normalize(16)),
       color: colors.primary,
     },
-    digitContainer: {
+    otpContainer: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       width: '80%',
-      maxWidth: 280,
+      maxWidth: 300,
     },
     digitInput: {
-      width: normalize(50),
+      width: normalize(45),
       height: normalize(60),
       borderWidth: 1,
       borderColor: colors.border,
@@ -158,7 +188,7 @@ const VerificationScreen = () => {
       alignItems: 'center',
       marginTop: normalize(40),
       width: '80%',
-      maxWidth: 280,
+      maxWidth: 300,
     },
     buttonText: {
       ...getFontStyle('semiBold', normalize(16)),
@@ -185,101 +215,45 @@ const VerificationScreen = () => {
             <Text style={dynamicStyles.emailText}>{email}</Text>
           </Text>
 
-          <View style={dynamicStyles.digitContainer}>
-            <Controller
-              control={control}
-              name="digit1"
-              render={({field: {onChange, value}}) => (
-                <TextInput
-                  style={[
-                    dynamicStyles.digitInput,
-                    errors.digit1 && dynamicStyles.digitInputError,
-                  ]}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  value={value}
-                  onChangeText={text =>
-                    handleDigitChange(text, onChange, digit2Ref)
-                  }
-                  autoFocus
-                  testID="digit1-input"
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="digit2"
-              render={({field: {onChange, value}}) => (
-                <TextInput
-                  ref={digit2Ref}
-                  style={[
-                    dynamicStyles.digitInput,
-                    errors.digit2 && dynamicStyles.digitInputError,
-                  ]}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  value={value}
-                  onChangeText={text =>
-                    handleDigitChange(text, onChange, digit3Ref)
-                  }
-                  testID="digit2-input"
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="digit3"
-              render={({field: {onChange, value}}) => (
-                <TextInput
-                  ref={digit3Ref}
-                  style={[
-                    dynamicStyles.digitInput,
-                    errors.digit3 && dynamicStyles.digitInputError,
-                  ]}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  value={value}
-                  onChangeText={text =>
-                    handleDigitChange(text, onChange, digit4Ref)
-                  }
-                  testID="digit3-input"
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="digit4"
-              render={({field: {onChange, value}}) => (
-                <TextInput
-                  ref={digit4Ref}
-                  style={[
-                    dynamicStyles.digitInput,
-                    errors.digit4 && dynamicStyles.digitInputError,
-                  ]}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  value={value}
-                  onChangeText={text => handleDigitChange(text, onChange)}
-                  testID="digit4-input"
-                />
-              )}
-            />
+          <View style={dynamicStyles.otpContainer}>
+            {[0, 1, 2, 3, 4, 5].map(index => (
+              <TextInput
+                key={index}
+                ref={ref => (inputRefs.current[index] = ref)}
+                style={dynamicStyles.digitInput}
+                keyboardType="number-pad"
+                maxLength={1}
+                value={otp[index]}
+                onChangeText={text => handleDigitChange(text, index)}
+                onKeyPress={e => handleKeyPress(e, index)}
+                autoFocus={index === 0}
+                testID={`digit${index + 1}-input`}
+              />
+            ))}
           </View>
 
           <TouchableOpacity
-            style={dynamicStyles.button}
-            onPress={handleSubmit(onSubmit)}
+            style={[dynamicStyles.button, isLoading && {opacity: 0.7}]}
+            onPress={handleVerify}
+            disabled={isLoading || otp.join('').length !== 6}
             testID="verify-button">
-            <Text style={dynamicStyles.buttonText}>Verify</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={dynamicStyles.buttonText}>Verify</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={dynamicStyles.resendContainer}
+            onPress={handleResendOtp}
+            disabled={resendLoading}
             testID="resend-button">
-            <Text style={dynamicStyles.resendText}>Resend Code</Text>
+            {resendLoading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={dynamicStyles.resendText}>Resend Code</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

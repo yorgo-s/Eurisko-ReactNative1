@@ -1,343 +1,209 @@
-// src/screens/profile/ProfileScreen.tsx
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext} from 'react';
 import {
   View,
   Text,
-  TextInput,
+  StyleSheet,
   TouchableOpacity,
   Image,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
   ScrollView,
-  Platform,
+  Alert,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {AuthContext} from '../../context/AuthContext';
 import {ThemeContext} from '../../context/ThemeContext';
-import {userService} from '../../services/api';
-import * as ImagePicker from 'react-native-image-picker'; // You'll need to install this package
+import {useAuthStore} from '../../store/authStore';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 const ProfileScreen = () => {
-  const {user, logout} = useContext(AuthContext);
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
+  const {user, logout} = useAuthStore();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [profileImage, setProfileImage] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Load user data
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const response = await userService.getProfile();
-        if (response.success && response.data?.user) {
-          const userData = response.data.user;
-          setFirstName(userData.firstName || '');
-          setLastName(userData.lastName || '');
-          if (userData.profileImage?.url) {
-            setProfileImage({uri: userData.profileImage.url});
-          }
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      }
-    };
-
-    loadUserProfile();
-  }, []);
-
-  // Select profile image from gallery
-  const selectImage = async () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: false,
-      maxHeight: 2000,
-      maxWidth: 2000,
-    };
-
-    try {
-      const response = await ImagePicker.launchImageLibrary(options);
-
-      if (response.didCancel) {
-        return;
-      }
-
-      if (response.errorCode) {
-        throw new Error(response.errorMessage);
-      }
-
-      if (response.assets && response.assets.length > 0) {
-        const asset = response.assets[0];
-        setProfileImage({
-          uri: asset.uri,
-          type: asset.type,
-          name: asset.fileName,
-        });
-      }
-    } catch (error) {
-      console.error('Error selecting image:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
-    }
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          onPress: () => logout(),
+          style: 'destructive',
+        },
+      ],
+      {cancelable: true},
+    );
   };
 
-  const updateProfile = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Invalid Input', 'First name and last name are required.');
-      return;
-    }
+  const handleEditProfile = () => {
+    // We'll implement this in Increment 5
+    Alert.alert(
+      'Coming Soon',
+      'Edit profile functionality will be implemented soon!',
+    );
+  };
 
-    setLoading(true);
-    try {
-      const response = await userService.updateProfile(
-        firstName,
-        lastName,
-        profileImage,
-      );
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      padding: 20,
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    profileImageContainer: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+      overflow: 'hidden',
+    },
+    profileImage: {
+      width: '100%',
+      height: '100%',
+      resizeMode: 'cover',
+    },
+    profileInitial: {
+      ...getFontStyle('bold', 40),
+      color: colors.primary,
+    },
+    name: {
+      ...typography.heading2,
+      marginBottom: 4,
+    },
+    email: {
+      ...typography.body,
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      marginBottom: 16,
+    },
+    editButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+    },
+    editButtonText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#FFFFFF',
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      ...typography.subtitle,
+      marginBottom: 16,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    optionText: {
+      ...typography.body,
+      flex: 1,
+    },
+    logoutButton: {
+      backgroundColor: isDarkMode ? '#333333' : '#F5F5F7',
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 20,
+    },
+    logoutText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#D32F2F',
+    },
+  });
 
-      if (response.success) {
-        Alert.alert('Success', 'Profile updated successfully!');
-        setIsEditing(false);
-      } else {
-        Alert.alert(
-          'Update Failed',
-          response.error?.message || 'Failed to update profile.',
-        );
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  // Function to get the user's initials for fallback avatar
+  const getInitials = () => {
+    if (!user) return '?';
+
+    const firstInitial = user.firstName ? user.firstName.charAt(0) : '';
+    const lastInitial = user.lastName ? user.lastName.charAt(0) : '';
+
+    return (firstInitial + lastInitial).toUpperCase();
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, {backgroundColor: colors.background}]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView>
         <View style={styles.header}>
-          <Text style={[styles.title, {color: colors.text}]}>My Profile</Text>
-        </View>
-
-        <View style={styles.profileImageContainer}>
-          <TouchableOpacity
-            style={styles.imageWrapper}
-            onPress={isEditing ? selectImage : undefined}
-            disabled={!isEditing || loading}>
-            {profileImage ? (
-              <Image source={profileImage} style={styles.profileImage} />
+          <View style={styles.profileImageContainer}>
+            {user?.profileImage?.url ? (
+              <Image
+                source={{uri: user.profileImage.url}}
+                style={styles.profileImage}
+              />
             ) : (
-              <View
-                style={[
-                  styles.profileImagePlaceholder,
-                  {backgroundColor: colors.border},
-                ]}>
-                <Text
-                  style={[
-                    styles.profileImagePlaceholderText,
-                    {color: colors.text},
-                  ]}>
-                  {`${firstName.charAt(0)}${lastName.charAt(0)}`}
-                </Text>
-              </View>
+              <Text style={styles.profileInitial}>{getInitials()}</Text>
             )}
-            {isEditing && (
-              <View
-                style={[
-                  styles.editIconOverlay,
-                  {
-                    backgroundColor: isDarkMode
-                      ? colors.card
-                      : 'rgba(255, 255, 255, 0.8)',
-                  },
-                ]}>
-                <Text>📷</Text>
-              </View>
-            )}
+          </View>
+
+          <Text style={styles.name}>
+            {user ? `${user.firstName} ${user.lastName}` : 'User Name'}
+          </Text>
+
+          <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
+
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={handleEditProfile}
+            testID="edit-profile-button">
+            <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, {color: colors.text}]}>First Name</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="First Name"
-              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-              editable={isEditing}
-            />
+        <View style={styles.content}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Preferences</Text>
+
+            <View style={styles.option}>
+              <Text style={styles.optionText}>Theme</Text>
+              <Text>{isDarkMode ? 'Dark' : 'Light'}</Text>
+            </View>
+
+            <View style={styles.option}>
+              <Text style={styles.optionText}>Notifications</Text>
+              <Text>On</Text>
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, {color: colors.text}]}>Last Name</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Last Name"
-              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-              editable={isEditing}
-            />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+
+            <View style={styles.option}>
+              <Text style={styles.optionText}>Privacy</Text>
+            </View>
+
+            <View style={styles.option}>
+              <Text style={styles.optionText}>Security</Text>
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, {color: colors.text}]}>Email</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border,
-                  opacity: 0.7,
-                },
-              ]}
-              value={user?.email || ''}
-              editable={false}
-            />
-          </View>
-
-          <View style={styles.buttonContainer}>
-            {isEditing ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.button, {backgroundColor: colors.error}]}
-                  onPress={() => setIsEditing(false)}
-                  disabled={loading}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, {backgroundColor: colors.primary}]}
-                  onPress={updateProfile}
-                  disabled={loading}>
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.buttonText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={[styles.button, {backgroundColor: colors.primary}]}
-                  onPress={() => setIsEditing(true)}>
-                  <Text style={styles.buttonText}>Edit Profile</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, {backgroundColor: colors.error}]}
-                  onPress={logout}>
-                  <Text style={styles.buttonText}>Logout</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            testID="logout-button">
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 16,
-  },
-  header: {
-    marginVertical: 20,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  profileImageContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  imageWrapper: {
-    position: 'relative',
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  profileImagePlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileImagePlaceholderText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-  },
-  editIconOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    padding: 8,
-    borderRadius: 15,
-  },
-  formContainer: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  input: {
-    fontSize: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-  button: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 4,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
 
 export default ProfileScreen;

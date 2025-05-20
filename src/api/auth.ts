@@ -58,17 +58,28 @@ export const authApi = {
 
   // Login user
   login: async (data: LoginData) => {
-    const response = await apiClient.post('/api/auth/login', data);
+    console.log('Making login API call with:', data);
+    try {
+      const response = await apiClient.post('/api/auth/login', data);
+      console.log('Login API response:', response.data);
 
-    if (response.data.success) {
-      await AsyncStorage.setItem('@auth_token', response.data.data.accessToken);
-      await AsyncStorage.setItem(
-        '@refresh_token',
-        response.data.data.refreshToken,
-      );
+      if (response.data.success) {
+        await AsyncStorage.setItem(
+          '@auth_token',
+          response.data.data.accessToken,
+        );
+        await AsyncStorage.setItem(
+          '@refresh_token',
+          response.data.data.refreshToken,
+        );
+        console.log('Tokens stored in AsyncStorage');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.log('Login API error:', error.response?.data || error);
+      throw error;
     }
-
-    return response.data;
   },
 
   // Verify OTP

@@ -39,19 +39,29 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email, password) => {
         try {
+          console.log('Attempting login with:', email, password);
           set({isLoading: true, error: null});
+
           const response = await authApi.login({email, password});
+          console.log('Login response:', response);
 
           if (response.success) {
+            console.log('Login successful, fetching profile...');
             // After successful login, fetch user profile
             await get().fetchUserProfile();
             set({isLoggedIn: true, isLoading: false});
+            console.log('Login flow complete, isLoggedIn set to true');
             return true;
           } else {
+            console.log('Login failed response:', response);
             set({isLoading: false, error: 'Login failed'});
             return false;
           }
         } catch (error: any) {
+          console.log(
+            'Login error:',
+            error.response?.data || error.message || error,
+          );
           set({
             isLoading: false,
             error: error.response?.data?.error?.message || 'Login failed',

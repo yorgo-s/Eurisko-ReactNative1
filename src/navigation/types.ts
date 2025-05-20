@@ -1,4 +1,4 @@
-import {Product} from '../screens/products/ProductsScreen';
+import {Product} from '../api/products';
 
 export type AuthStackParamList = {
   Login: undefined;

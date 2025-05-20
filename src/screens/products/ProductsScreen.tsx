@@ -1,5 +1,3 @@
-// src/screens/products/ProductsScreen.tsx
-
 import React, {useContext, useEffect, useState} from 'react';
 import {
   View,
@@ -9,34 +7,29 @@ import {
   TouchableOpacity,
   StatusBar,
   useWindowDimensions,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
-import {AuthContext} from '../../context/AuthContext';
 import ProductCard from '../../components/products/ProductCard';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-
-// Define the product type
-export type Product = {
-  _id: string;
-  title: string;
-  description: string;
-  price: number;
-  images: Array<{
-    url: string;
-    _id: string;
-  }>;
-};
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {Product} from '../../api/products';
+import {useProductStore} from '../../store/productStore';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
   const {colors, isDarkMode, toggleTheme, typography, getFontStyle} =
     useContext(ThemeContext);
-  const {logout} = useContext(AuthContext);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const insets = useSafeAreaInsets();
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Use the product store
+  const {products, isLoading, error, fetchProducts, searchProducts} =
+    useProductStore();
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
@@ -45,31 +38,29 @@ const ProductsScreen = () => {
   const numColumns = isLandscape ? 4 : 2;
 
   useEffect(() => {
-    // Load products from the static data
-    const loadProducts = async () => {
-      try {
-        // In a real app, we'd fetch from an API
-        // For this assignment, we'll use the static data from the root Products.json file
-        const productsJson = require('../../../Products.json');
-        console.log('Products loaded:', productsJson.data.length);
-        setProducts(productsJson.data);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error loading products:', error);
-        setIsLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, []);
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleProductPress = (product: Product) => {
     navigation.navigate('ProductDetails', product);
   };
 
-  const handleLogout = () => {
-    // Call the logout function from AuthContext
-    logout();
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      searchProducts(searchQuery);
+    } else {
+      fetchProducts();
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    fetchProducts();
+  };
+
+  const handleAddProduct = () => {
+    // This will be implemented in Increment 5
+    console.log('Add product pressed');
   };
 
   const styles = StyleSheet.create({
@@ -78,49 +69,90 @@ const ProductsScreen = () => {
       backgroundColor: colors.background,
     },
     header: {
+      padding: 16,
+      paddingTop: Math.max(16, insets.top),
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTop: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 16,
-      paddingTop: Math.max(10, insets.top - 25),
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      marginBottom: 16,
     },
     title: {
       ...typography.heading2,
     },
-    rightButtons: {
+    searchBarContainer: {
       flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDarkMode ? colors.card : '#F0F0F0',
+      borderRadius: 8,
+      paddingHorizontal: 12,
     },
-    iconButton: {
-      marginLeft: 16,
-      padding: 8,
+    searchInput: {
+      flex: 1,
+      padding: 10,
+      ...getFontStyle('regular', 16),
+      color: colors.text,
     },
-    iconText: {
-      ...getFontStyle('regular', 20),
+    searchButton: {
+      padding: 6,
     },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingTop: insets.top,
     },
-    loadingText: {
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorText: {
       ...typography.body,
+      color: colors.error,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    retryButton: {
+      backgroundColor: colors.primary,
+      padding: 12,
+      borderRadius: 8,
+    },
+    retryButtonText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#FFFFFF',
+    },
+    list: {
+      padding: 8,
     },
     emptyContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       padding: 20,
-      paddingTop: Math.max(20, insets.top),
     },
     emptyText: {
       ...typography.body,
       textAlign: 'center',
     },
-    list: {
-      padding: 8,
+    addButton: {
+      position: 'absolute',
+      bottom: 20 + insets.bottom,
+      right: 20,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
     },
   });
 
@@ -133,12 +165,32 @@ const ProductsScreen = () => {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.background}
         />
-        <Text style={styles.loadingText}>Loading products...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.emptyText}>Loading products...</Text>
       </SafeAreaView>
     );
   }
 
-  if (products.length === 0) {
+  if (error) {
+    return (
+      <SafeAreaView
+        style={[styles.container, styles.errorContainer]}
+        edges={['top']}>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
+        <Text style={styles.errorText}>Error loading products: {error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => fetchProducts()}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  if (!products.length) {
     return (
       <SafeAreaView
         style={[styles.container, styles.emptyContainer]}
@@ -150,6 +202,12 @@ const ProductsScreen = () => {
         <Text style={styles.emptyText}>
           No products found. Check back later!
         </Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleAddProduct}
+          testID="add-product-button">
+          <Icon name="plus" size={30} color="#FFFFFF" />
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -161,25 +219,42 @@ const ProductsScreen = () => {
         backgroundColor={colors.background}
       />
       <View style={styles.header}>
-        <Text style={styles.title}>All Products</Text>
-        <View style={styles.rightButtons}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={toggleTheme}
-            testID="theme-toggle-button">
-            <Text style={styles.iconText}>{isDarkMode ? '☀️' : '🌙'}</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>All Products</Text>
+          <TouchableOpacity onPress={toggleTheme}>
+            <Icon
+              name={isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'}
+              size={24}
+              color={colors.text}
+            />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={handleLogout}
-            testID="logout-button">
-            <Text style={styles.iconText}>🚪</Text>
-          </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchBarContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            testID="search-input"
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={clearSearch} style={styles.searchButton}>
+              <Icon name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleSearch}
+              style={styles.searchButton}>
+              <Icon name="magnify" size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       <FlatList
-        key={`grid-${numColumns}`} // Force re-render when columns change
         data={products}
         keyExtractor={item => item._id}
         renderItem={({item}) => (
@@ -193,6 +268,13 @@ const ProductsScreen = () => {
         contentContainerStyle={styles.list}
         testID="products-list"
       />
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={handleAddProduct}
+        testID="add-product-button">
+        <Icon name="plus" size={30} color="#FFFFFF" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };

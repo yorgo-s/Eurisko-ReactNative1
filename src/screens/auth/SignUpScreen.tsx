@@ -1,6 +1,4 @@
-// src/screens/auth/SignUpScreen.tsx
-
-import React, {useContext} from 'react';
+import React, {useContext, useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -11,6 +9,8 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {useForm, Controller} from 'react-hook-form';
 import {z} from 'zod';
@@ -21,12 +21,13 @@ import {Dimensions, PixelRatio} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {AuthStackParamList} from '../../navigation/types';
+import {useAuthStore} from '../../store/authStore';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
-const scale = width / 375; // Base width on standard mobile screen
+const scale = width / 375;
 
-// Function to normalize font size based on screen width
+// Function to normalize size based on screen width
 const normalize = (size: number) => {
   const newSize = size * scale;
   return Math.round(PixelRatio.roundToNearestPixel(newSize));
@@ -34,17 +35,14 @@ const normalize = (size: number) => {
 
 // Define validation schema with Zod
 const signupSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
-  phoneNumber: z
-    .string()
-    .min(10, 'Phone number must be at least 10 digits')
-    .regex(/^\d+$/, 'Phone number must contain only digits'),
 });
 
 type SignUpFormData = z.infer<typeof signupSchema>;
@@ -60,6 +58,9 @@ const SignUpScreen = () => {
     useContext(ThemeContext);
   const insets = useSafeAreaInsets();
 
+  // Use the auth store
+  const {signup, isLoading, error, clearError} = useAuthStore();
+
   const {
     control,
     handleSubmit,
@@ -67,17 +68,31 @@ const SignUpScreen = () => {
   } = useForm<SignUpFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      name: '',
+      firstName: '',
+      lastName: '',
       email: '',
       password: '',
-      phoneNumber: '',
     },
   });
 
-  const onSubmit = (data: SignUpFormData) => {
-    // Here we would usually register the user, but for this assignment
-    // we'll just navigate to the verification screen
-    navigation.navigate('Verification', {email: data.email});
+  // Show error alert when auth error occurs
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Signup Error', error, [{text: 'OK', onPress: clearError}]);
+    }
+  }, [error, clearError]);
+
+  const onSubmit = async (data: SignUpFormData) => {
+    const success = await signup(
+      data.firstName,
+      data.lastName,
+      data.email,
+      data.password,
+    );
+
+    if (success) {
+      navigation.navigate('Verification', {email: data.email});
+    }
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -152,23 +167,48 @@ const SignUpScreen = () => {
           <Text style={dynamicStyles.title}>Create Account</Text>
 
           <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>Name</Text>
+            <Text style={dynamicStyles.label}>First Name</Text>
             <Controller
               control={control}
-              name="name"
+              name="firstName"
               render={({field: {onChange, value}}) => (
                 <TextInput
                   style={dynamicStyles.input}
-                  placeholder="Enter your full name"
+                  placeholder="Enter your first name"
                   placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
                   value={value}
                   onChangeText={onChange}
-                  testID="name-input"
+                  testID="firstName-input"
                 />
               )}
             />
-            {errors.name && (
-              <Text style={dynamicStyles.errorText}>{errors.name.message}</Text>
+            {errors.firstName && (
+              <Text style={dynamicStyles.errorText}>
+                {errors.firstName.message}
+              </Text>
+            )}
+          </View>
+
+          <View style={dynamicStyles.inputContainer}>
+            <Text style={dynamicStyles.label}>Last Name</Text>
+            <Controller
+              control={control}
+              name="lastName"
+              render={({field: {onChange, value}}) => (
+                <TextInput
+                  style={dynamicStyles.input}
+                  placeholder="Enter your last name"
+                  placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+                  value={value}
+                  onChangeText={onChange}
+                  testID="lastName-input"
+                />
+              )}
+            />
+            {errors.lastName && (
+              <Text style={dynamicStyles.errorText}>
+                {errors.lastName.message}
+              </Text>
             )}
           </View>
 
@@ -221,35 +261,16 @@ const SignUpScreen = () => {
             )}
           </View>
 
-          <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>Phone Number</Text>
-            <Controller
-              control={control}
-              name="phoneNumber"
-              render={({field: {onChange, value}}) => (
-                <TextInput
-                  style={dynamicStyles.input}
-                  placeholder="Enter your phone number"
-                  placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-                  value={value}
-                  onChangeText={onChange}
-                  keyboardType="phone-pad"
-                  testID="phone-input"
-                />
-              )}
-            />
-            {errors.phoneNumber && (
-              <Text style={dynamicStyles.errorText}>
-                {errors.phoneNumber.message}
-              </Text>
-            )}
-          </View>
-
           <TouchableOpacity
-            style={dynamicStyles.button}
+            style={[dynamicStyles.button, isLoading && {opacity: 0.7}]}
             onPress={handleSubmit(onSubmit)}
+            disabled={isLoading}
             testID="signup-button">
-            <Text style={dynamicStyles.buttonText}>Sign Up</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={dynamicStyles.buttonText}>Sign Up</Text>
+            )}
           </TouchableOpacity>
 
           <View style={dynamicStyles.linkContainer}>
