@@ -35,6 +35,12 @@ const ProductsScreen = () => {
   // State to track whether we're searching
   const [isSearchActive, setIsSearchActive] = useState(false);
 
+  // Determine if we're in landscape orientation
+  const isLandscape = windowWidth > windowHeight;
+
+  // Determine number of columns based on orientation
+  const numColumns = isLandscape ? 4 : 2;
+
   // Infinite query for products
   const {
     data: productsData,
@@ -49,11 +55,11 @@ const ProductsScreen = () => {
     queryFn: async ({pageParam}) => {
       const response = await productsApi.getProducts({
         page: pageParam,
-        limit: 6, // Fetch 6 products per page
+        limit: isLandscape ? 8 : 6, // Fetch more in landscape mode
       });
       return response;
     },
-    initialPageParam: 1, // Added to fix the TypeScript error
+    initialPageParam: 1,
     getNextPageParam: lastPage => {
       if (lastPage.pagination?.hasNextPage) {
         return lastPage.pagination.currentPage + 1;
@@ -67,28 +73,30 @@ const ProductsScreen = () => {
   const getFilteredSearchResults = (results: Product[], query: string) => {
     if (!query.trim()) return results;
 
-    const searchTerms = query.toLowerCase().trim().split(/\s+/);
-
-    return results.filter(product => {
-      // Check if all search terms are present in the product
-      return searchTerms.every(term => {
+    // If no results directly from API search, implement client-side search
+    if (results.length === 0) {
+      // Try to get all products and filter client-side
+      return allProducts.filter(product => {
         const title = product.title.toLowerCase();
         const description = product.description.toLowerCase();
+        const searchTerms = query.toLowerCase().trim().split(/\s+/);
 
-        // Exact match for model numbers (like "14" in "iPhone 14")
-        if (!isNaN(Number(term))) {
-          // Look for the exact number with boundaries
-          const modelRegex = new RegExp(`\\b${term}\\b`);
-          return modelRegex.test(title) || modelRegex.test(description);
-        }
+        return searchTerms.every(term => {
+          // For numbers, look for exact matches
+          if (!isNaN(Number(term))) {
+            return title.includes(term) || description.includes(term);
+          }
 
-        // For text terms, we can be a bit more lenient
-        return title.includes(term) || description.includes(term);
+          // For text terms, check for inclusion
+          return title.includes(term) || description.includes(term);
+        });
       });
-    });
+    }
+
+    return results;
   };
 
-  // Query for search results with improved logic
+  // Query for search results with improved error handling
   const {
     data: searchData,
     isLoading: isSearching,
@@ -101,28 +109,18 @@ const ProductsScreen = () => {
         // First try the API's search endpoint
         const result = await productsApi.searchProducts(debouncedSearch);
 
-        // If we got results, good. We'll filter them more precisely in our memo
-        if (result.data && result.data.length > 0) {
-          return result;
-        }
-
-        // If no results and we're searching for a specific model number,
-        // try to get all products and filter client-side
-        if (!isNaN(Number(debouncedSearch)) || debouncedSearch.match(/\d+/)) {
-          const allProductsResult = await productsApi.getProducts({limit: 30});
-          return {
-            success: true,
-            data: allProductsResult.data || [],
-          };
-        }
-
         return result;
       } catch (error) {
         console.error('Search error:', error);
-        throw error;
+        // Return empty results on error instead of throwing
+        return {success: true, data: []};
       }
     },
     enabled: isSearchActive && debouncedSearch.length > 0,
+    // Don't throw errors, handle them gracefully
+    throwOnError: false,
+    // Return empty data on error
+    placeholderData: {success: true, data: []},
   });
 
   // Update search active state when search input changes
@@ -136,20 +134,25 @@ const ProductsScreen = () => {
     return productsData.pages.flatMap(page => page.data || []);
   }, [productsData]);
 
-  // Get filtered search results
+  // Get search results
   const searchResults = React.useMemo(() => {
-    if (!searchData?.data) return [];
-    return getFilteredSearchResults(searchData.data, debouncedSearch);
-  }, [searchData, debouncedSearch]);
+    // First check if we have search data from the API
+    const searchResultsFromApi = searchData?.data || [];
+
+    // If we got no results from API search, try local filtering
+    if (
+      isSearchActive &&
+      searchResultsFromApi.length === 0 &&
+      debouncedSearch.trim()
+    ) {
+      return getFilteredSearchResults([], debouncedSearch);
+    }
+
+    return searchResultsFromApi;
+  }, [searchData, debouncedSearch, isSearchActive, allProducts]);
 
   // Display products based on whether search is active or not
   const displayedProducts = isSearchActive ? searchResults : allProducts;
-
-  // Determine if we're in landscape orientation
-  const isLandscape = windowWidth > windowHeight;
-
-  // Determine number of columns based on orientation
-  const numColumns = isLandscape ? 4 : 2;
 
   const handleProductPress = (product: Product) => {
     navigation.navigate('ProductDetails', product);
@@ -199,6 +202,97 @@ const ProductsScreen = () => {
     );
   };
 
+  // Main screen content with header and search bar
+  const renderMainContent = () => {
+    if (isLandscape) {
+      // Landscape layout - compact header with inline search
+      return (
+        <View style={styles.headerLandscape}>
+          <Text
+            style={[styles.title, {flex: 0, marginBottom: 0, marginRight: 16}]}>
+            All Products
+          </Text>
+
+          <View style={[styles.searchBarContainer, {flex: 1, marginBottom: 0}]}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+              value={searchInput}
+              onChangeText={setSearchInput}
+              onSubmitEditing={handleSearch}
+              testID="search-input"
+            />
+            {searchInput ? (
+              <TouchableOpacity
+                onPress={handleClearSearch}
+                style={styles.searchButton}>
+                <Icon name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleSearch}
+                style={styles.searchButton}>
+                <Icon name="magnify" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity onPress={toggleTheme} style={{marginLeft: 16}}>
+            <Icon
+              name={isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'}
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    } else {
+      // Portrait layout - standard stacked header
+      return (
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <Text style={styles.title}>All Products</Text>
+            <TouchableOpacity onPress={toggleTheme}>
+              <Icon
+                name={
+                  isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'
+                }
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.searchBarContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+              value={searchInput}
+              onChangeText={setSearchInput}
+              onSubmitEditing={handleSearch}
+              testID="search-input"
+            />
+            {searchInput ? (
+              <TouchableOpacity
+                onPress={handleClearSearch}
+                style={styles.searchButton}>
+                <Icon name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleSearch}
+                style={styles.searchButton}>
+                <Icon name="magnify" size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+  };
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -206,7 +300,16 @@ const ProductsScreen = () => {
     },
     header: {
       padding: 16,
-      paddingTop: Math.max(16, insets.top),
+      paddingTop: Math.max(16, insets.top - 30),
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerLandscape: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      paddingTop: Math.max(12, insets.top),
+      paddingBottom: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
@@ -214,10 +317,11 @@ const ProductsScreen = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: 8,
     },
     title: {
       ...typography.heading2,
+      fontSize: isLandscape ? 22 : 24, // Smaller title in landscape
     },
     searchBarContainer: {
       flexDirection: 'row',
@@ -228,8 +332,8 @@ const ProductsScreen = () => {
     },
     searchInput: {
       flex: 1,
-      padding: 10,
-      ...getFontStyle('regular', 16),
+      padding: isLandscape ? 8 : 10, // Smaller padding in landscape
+      ...getFontStyle('regular', isLandscape ? 14 : 16), // Smaller text in landscape
       color: colors.text,
     },
     searchButton: {
@@ -309,149 +413,90 @@ const ProductsScreen = () => {
     },
   });
 
-  // Display loading state
-  if (
-    (isLoadingProducts && !displayedProducts.length) ||
-    (isSearching && isSearchActive && !searchResults.length)
-  ) {
-    return (
-      <SafeAreaView
-        style={[styles.container, styles.loadingContainer]}
-        edges={['top']}>
-        <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.emptyText}>
-          {isSearchActive ? 'Searching...' : 'Loading products...'}
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Display error state
-  if ((productsError && !isSearchActive) || (searchError && isSearchActive)) {
-    const error = isSearchActive ? searchError : productsError;
-    return (
-      <SafeAreaView
-        style={[styles.container, styles.errorContainer]}
-        edges={['top']}>
-        <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
-        <Text style={styles.errorText}>Error: {(error as Error).message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  // Display empty state
-  if (!displayedProducts.length) {
-    return (
-      <SafeAreaView
-        style={[styles.container, styles.emptyContainer]}
-        edges={['top']}>
-        <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
-        <Text style={styles.emptyText}>
-          {isSearchActive
-            ? `No products found matching "${debouncedSearch}"`
-            : 'No products found. Check back later!'}
-        </Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddProduct}
-          testID="add-product-button">
-          <Icon name="plus" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
+  // Always render the header with search bar
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.title}>All Products</Text>
-          <TouchableOpacity onPress={toggleTheme}>
-            <Icon
-              name={isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'}
-              size={24}
-              color={colors.text}
-            />
-          </TouchableOpacity>
-        </View>
 
-        <View style={styles.searchBarContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products..."
-            placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-            value={searchInput}
-            onChangeText={setSearchInput}
-            onSubmitEditing={handleSearch}
-            testID="search-input"
-          />
-          {searchInput ? (
-            <TouchableOpacity
-              onPress={handleClearSearch}
-              style={styles.searchButton}>
-              <Icon name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={handleSearch}
-              style={styles.searchButton}>
-              <Icon name="magnify" size={24} color={colors.text} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      {/* Responsive header with search bar */}
+      {renderMainContent()}
 
+      {/* Search results count (if applicable) */}
       {isSearchActive && (
-        <Text style={styles.searchResultText}>
+        <Text
+          style={[
+            styles.searchResultText,
+            isLandscape && {marginTop: 4, marginBottom: 4},
+          ]}>
           {searchResults.length > 0
             ? `Found ${searchResults.length} results for "${debouncedSearch}"`
             : `No products found matching "${debouncedSearch}"`}
         </Text>
       )}
 
-      <FlatList
-        data={displayedProducts}
-        keyExtractor={item => item._id}
-        renderItem={({item}) => (
-          <ProductCard
-            product={item}
-            onPress={() => handleProductPress(item)}
-            numColumns={numColumns}
-          />
-        )}
-        numColumns={numColumns}
-        contentContainerStyle={styles.list}
-        testID="products-list"
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoadingProducts || isSearching}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-      />
+      {/* Different content states */}
+      {(isLoadingProducts && !displayedProducts.length) ||
+      (isSearching && isSearchActive && !searchResults.length) ? (
+        // Loading state
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.emptyText}>
+            {isSearchActive ? 'Searching...' : 'Loading products...'}
+          </Text>
+        </View>
+      ) : productsError && !isSearchActive ? (
+        // Error state for main products (only show if not searching)
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Error loading products</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => refetchProducts()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : !displayedProducts.length ? (
+        // Empty state
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {isSearchActive
+              ? `No products found matching "${debouncedSearch}"`
+              : 'No products found. Check back later!'}
+          </Text>
+        </View>
+      ) : (
+        // Products list
+        <FlatList
+          data={displayedProducts}
+          keyExtractor={item => item._id}
+          renderItem={({item}) => (
+            <ProductCard
+              product={item}
+              onPress={() => handleProductPress(item)}
+              numColumns={numColumns}
+            />
+          )}
+          key={numColumns} // Force re-render when column count changes
+          numColumns={numColumns}
+          contentContainerStyle={styles.list}
+          testID="products-list"
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoadingProducts || isSearching}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+        />
+      )}
 
+      {/* Always show Add button */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={handleAddProduct}
