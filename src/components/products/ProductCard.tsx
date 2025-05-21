@@ -1,5 +1,3 @@
-// src/components/products/ProductCard.tsx
-
 import React, {useContext} from 'react';
 import {
   View,
@@ -10,7 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import {ThemeContext} from '../../context/ThemeContext';
-import {Product} from '../../screens/products/ProductsScreen';
+import {Product} from '../../api/products';
 
 type ProductCardProps = {
   product: Product;
@@ -25,6 +23,16 @@ const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
   // Calculate item width based on current window width and number of columns
   // Including padding/margin to ensure proper spacing
   const itemWidth = (windowWidth - 16 * (numColumns + 1)) / numColumns;
+
+  // Function to get the full image URL
+  const getImageUrl = (relativeUrl: string) => {
+    // Check if the URL is already absolute (starts with http or https)
+    if (relativeUrl.startsWith('http')) {
+      return relativeUrl;
+    }
+    // Otherwise, prepend the base URL
+    return `https://backend-practice.eurisko.me${relativeUrl}`;
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -71,11 +79,15 @@ const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
       activeOpacity={0.8}
       testID={`product-card-${product._id}`}>
       <View style={styles.imageContainer}>
-        <Image
-          source={{uri: product.images[0]?.url}}
-          style={styles.image}
-          testID={`product-image-${product._id}`}
-        />
+        {product.images && product.images.length > 0 ? (
+          <Image
+            source={{uri: getImageUrl(product.images[0]?.url)}}
+            style={styles.image}
+            testID={`product-image-${product._id}`}
+          />
+        ) : (
+          <View style={[styles.image, {backgroundColor: colors.card}]} />
+        )}
       </View>
       <View style={styles.contentContainer}>
         <Text

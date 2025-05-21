@@ -1,5 +1,3 @@
-// src/screens/products/ProductDetailsScreen.tsx
-
 import React, {useContext} from 'react';
 import {
   View,
@@ -14,9 +12,10 @@ import {
 } from 'react-native';
 import {useRoute, RouteProp} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
-import {Product} from './ProductsScreen';
+import {Product} from '../../api/products';
 import {ProductStackParamList} from '../../navigation/types';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const ProductDetailsScreen = () => {
   const route = useRoute<RouteProp<ProductStackParamList, 'ProductDetails'>>();
@@ -28,6 +27,16 @@ const ProductDetailsScreen = () => {
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
+
+  // Function to get the full image URL
+  const getImageUrl = (relativeUrl: string) => {
+    // Check if the URL is already absolute (starts with http or https)
+    if (relativeUrl.startsWith('http')) {
+      return relativeUrl;
+    }
+    // Otherwise, prepend the base URL
+    return `https://backend-practice.eurisko.me${relativeUrl}`;
+  };
 
   const handleShare = async () => {
     try {
@@ -85,7 +94,7 @@ const ProductDetailsScreen = () => {
     descriptionTitle: {
       ...typography.subtitle,
       fontSize: 20, // Larger subtitle (derived from typography)
-      marginBottom: 8, // More space (was 8)
+      marginBottom: 8, // More space
     },
     description: {
       ...typography.body,
@@ -106,9 +115,11 @@ const ProductDetailsScreen = () => {
       justifyContent: 'center',
       flex: 1,
       marginRight: 8,
+      flexDirection: 'row',
     },
     shareButtonText: {
       ...getFontStyle('semiBold', 18),
+      marginLeft: 8,
     },
     addToCartButton: {
       backgroundColor: colors.primary,
@@ -118,10 +129,31 @@ const ProductDetailsScreen = () => {
       justifyContent: 'center',
       flex: 2,
       marginLeft: 8,
+      flexDirection: 'row',
     },
     addToCartButtonText: {
       ...getFontStyle('semiBold', 18),
       color: '#FFFFFF',
+      marginLeft: 8,
+    },
+    sellerContainer: {
+      marginTop: 16,
+      marginBottom: 16,
+      padding: 16,
+      backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
+      borderRadius: 8,
+    },
+    sellerTitle: {
+      ...typography.subtitle,
+      marginBottom: 8,
+    },
+    sellerInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    sellerText: {
+      ...typography.body,
+      marginLeft: 8,
     },
   });
 
@@ -137,11 +169,15 @@ const ProductDetailsScreen = () => {
         testID="product-details-scroll">
         <View style={styles.contentWrapper}>
           <View style={styles.imageContainer}>
-            <Image
-              source={{uri: product.images[0]?.url}}
-              style={styles.image}
-              testID="product-image"
-            />
+            {product.images && product.images.length > 0 ? (
+              <Image
+                source={{uri: getImageUrl(product.images[0]?.url)}}
+                style={styles.image}
+                testID="product-image"
+              />
+            ) : (
+              <View style={[styles.image, {backgroundColor: colors.card}]} />
+            )}
           </View>
 
           <View style={styles.contentContainer}>
@@ -157,11 +193,23 @@ const ProductDetailsScreen = () => {
               {product.description}
             </Text>
 
+            {/* Seller Information */}
+            <View style={styles.sellerContainer}>
+              <Text style={styles.sellerTitle}>Seller</Text>
+              <View style={styles.sellerInfo}>
+                <Icon name="account" size={24} color={colors.text} />
+                <Text style={styles.sellerText}>
+                  {product.user?.email || 'Unknown Seller'}
+                </Text>
+              </View>
+            </View>
+
             <View style={styles.buttonsContainer}>
               <TouchableOpacity
                 style={styles.shareButton}
                 onPress={handleShare}
                 testID="share-button">
+                <Icon name="share-variant" size={20} color={colors.text} />
                 <Text style={styles.shareButtonText}>Share</Text>
               </TouchableOpacity>
 
@@ -169,6 +217,7 @@ const ProductDetailsScreen = () => {
                 style={styles.addToCartButton}
                 onPress={handleAddToCart}
                 testID="add-to-cart-button">
+                <Icon name="cart-plus" size={20} color="#FFFFFF" />
                 <Text style={styles.addToCartButtonText}>Add to Cart</Text>
               </TouchableOpacity>
             </View>
