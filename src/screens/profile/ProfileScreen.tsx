@@ -1,3 +1,5 @@
+// src/screens/profile/ProfileScreen.tsx
+
 import React, {useContext} from 'react';
 import {
   View,
@@ -11,6 +13,7 @@ import {
 import {ThemeContext} from '../../context/ThemeContext';
 import {useAuthStore} from '../../store/authStore';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const ProfileScreen = () => {
   const {colors, isDarkMode, typography, getFontStyle} =
@@ -44,6 +47,17 @@ const ProfileScreen = () => {
     );
   };
 
+  // Function to get the user's initials for fallback avatar
+  const getInitials = () => {
+    if (!user) return '?';
+
+    const firstInitial = user.firstName ? user.firstName.charAt(0) : '';
+    const lastInitial = user.lastName ? user.lastName.charAt(0) : '';
+
+    return (firstInitial + lastInitial).toUpperCase();
+  };
+
+  // Create styles with dynamic colors from the theme
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -76,11 +90,12 @@ const ProfileScreen = () => {
     },
     name: {
       ...typography.heading2,
+      color: colors.text, // Explicitly set text color
       marginBottom: 4,
     },
     email: {
       ...typography.body,
-      color: isDarkMode ? '#AAAAAA' : '#666666',
+      color: isDarkMode ? '#AAAAAA' : '#666666', // Use a lighter color appropriate for the theme
       marginBottom: 16,
     },
     editButton: {
@@ -102,6 +117,7 @@ const ProfileScreen = () => {
     },
     sectionTitle: {
       ...typography.subtitle,
+      color: colors.text, // Explicitly set text color
       marginBottom: 16,
     },
     option: {
@@ -113,7 +129,12 @@ const ProfileScreen = () => {
     },
     optionText: {
       ...typography.body,
+      color: colors.text, // Explicitly set text color
       flex: 1,
+    },
+    optionValue: {
+      color: isDarkMode ? '#AAAAAA' : '#666666', // Use a lighter color appropriate for the theme
+      ...getFontStyle('regular', 16),
     },
     logoutButton: {
       backgroundColor: isDarkMode ? '#333333' : '#F5F5F7',
@@ -124,19 +145,9 @@ const ProfileScreen = () => {
     },
     logoutText: {
       ...getFontStyle('semiBold', 16),
-      color: '#D32F2F',
+      color: '#D32F2F', // Use a consistent color for logout regardless of theme
     },
   });
-
-  // Function to get the user's initials for fallback avatar
-  const getInitials = () => {
-    if (!user) return '?';
-
-    const firstInitial = user.firstName ? user.firstName.charAt(0) : '';
-    const lastInitial = user.lastName ? user.lastName.charAt(0) : '';
-
-    return (firstInitial + lastInitial).toUpperCase();
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -172,13 +183,27 @@ const ProfileScreen = () => {
             <Text style={styles.sectionTitle}>Preferences</Text>
 
             <View style={styles.option}>
+              <Icon
+                name="theme-light-dark"
+                size={24}
+                color={colors.text}
+                style={{marginRight: 12}}
+              />
               <Text style={styles.optionText}>Theme</Text>
-              <Text>{isDarkMode ? 'Dark' : 'Light'}</Text>
+              <Text style={styles.optionValue}>
+                {isDarkMode ? 'Dark' : 'Light'}
+              </Text>
             </View>
 
             <View style={styles.option}>
+              <Icon
+                name="bell"
+                size={24}
+                color={colors.text}
+                style={{marginRight: 12}}
+              />
               <Text style={styles.optionText}>Notifications</Text>
-              <Text>On</Text>
+              <Text style={styles.optionValue}>On</Text>
             </View>
           </View>
 
@@ -186,11 +211,33 @@ const ProfileScreen = () => {
             <Text style={styles.sectionTitle}>Account</Text>
 
             <View style={styles.option}>
+              <Icon
+                name="shield-account"
+                size={24}
+                color={colors.text}
+                style={{marginRight: 12}}
+              />
               <Text style={styles.optionText}>Privacy</Text>
+              <Icon
+                name="chevron-right"
+                size={20}
+                color={isDarkMode ? '#AAAAAA' : '#666666'}
+              />
             </View>
 
             <View style={styles.option}>
+              <Icon
+                name="lock"
+                size={24}
+                color={colors.text}
+                style={{marginRight: 12}}
+              />
               <Text style={styles.optionText}>Security</Text>
+              <Icon
+                name="chevron-right"
+                size={20}
+                color={isDarkMode ? '#AAAAAA' : '#666666'}
+              />
             </View>
           </View>
 

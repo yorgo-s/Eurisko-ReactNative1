@@ -198,15 +198,6 @@ const ProductDetailsScreen = () => {
       justifyContent: 'center',
       alignItems: 'center',
     },
-    backButton: {
-      position: 'absolute',
-      top: insets.top + 8,
-      left: 8,
-      zIndex: 10,
-      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)',
-      borderRadius: 20,
-      padding: 8,
-    },
   });
 
   // Display loading state
@@ -266,14 +257,6 @@ const ProductDetailsScreen = () => {
             ) : (
               <View style={[styles.image, {backgroundColor: colors.card}]} />
             )}
-
-            {/* Back button overlay */}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-              testID="back-button">
-              <Icon name="arrow-left" size={24} color={colors.text} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.contentContainer}>

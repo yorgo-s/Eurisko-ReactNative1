@@ -34,6 +34,16 @@ const ProductsNavigator = () => {
         component={ProductDetailsScreen}
         options={({route}) => ({
           title: route.params?.title || 'Product Details',
+          headerShown: true, // Make sure header is shown
+          headerTitleStyle: {
+            ...getFontStyle('bold', 18),
+          },
+          headerTintColor: colors.text, // Color for the back button and title
+          headerStyle: {
+            backgroundColor: colors.background,
+            elevation: 0, // Remove shadow on Android
+            shadowOpacity: 0, // Remove shadow on iOS
+          },
         })}
       />
     </Stack.Navigator>
