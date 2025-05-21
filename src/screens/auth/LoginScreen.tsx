@@ -69,11 +69,11 @@ const LoginScreen = () => {
   });
 
   // Show error alert when auth error occurs
-  useEffect(() => {
-    if (error) {
-      Alert.alert('Login Error', error, [{text: 'OK', onPress: clearError}]);
-    }
-  }, [error, clearError]);
+  // useEffect(() => {
+  //   if (error) {
+  //     Alert.alert('Login Error', error, [{text: 'OK', onPress: clearError}]);
+  //   }
+  // }, [error, clearError]);
 
   // In LoginScreen.tsx, update the onSubmit function:
 
@@ -87,11 +87,11 @@ const LoginScreen = () => {
       if (!success) {
         if (!error) {
           // If there's no error from the store but login failed
-          Alert.alert(
-            'Login Failed',
-            'Invalid email or password. Please try again.',
-            [{text: 'OK'}],
-          );
+          // Alert.alert(
+          //   'Login Failed',
+          //   'Invalid email or password. Please try again.',
+          //   [{text: 'OK'}],
+          // );
         }
       } else {
         console.log('Login successful!');
@@ -178,7 +178,7 @@ const LoginScreen = () => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
         <ScrollView contentContainerStyle={dynamicStyles.content}>
           <Text style={dynamicStyles.title}>Welcome Back</Text>
-
+          {error && <Text style={dynamicStyles.errorText}>{error}</Text>}
           <View style={dynamicStyles.inputContainer}>
             <Text style={dynamicStyles.label}>Email</Text>
             <Controller
