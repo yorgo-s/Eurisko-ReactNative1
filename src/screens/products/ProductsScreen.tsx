@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
@@ -16,7 +17,8 @@ import ProductCard from '../../components/products/ProductCard';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Product} from '../../api/products';
-import {useProductStore} from '../../store/productStore';
+import {useProducts, useSearchProducts} from '../../hooks/useProducts';
+import {useDebounce} from '../../hooks/useDebounce';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -24,12 +26,29 @@ const ProductsScreen = () => {
     useContext(ThemeContext);
   const insets = useSafeAreaInsets();
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
 
-  // Use the product store
-  const {products, isLoading, error, fetchProducts, searchProducts} =
-    useProductStore();
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 500); // Debounce search input
+
+  // Using our custom hooks for products data
+  const {
+    products,
+    isLoading: isLoadingProducts,
+    error: productsError,
+    refetch: refetchProducts,
+    pagination,
+    nextPage,
+    prevPage,
+    updateParams,
+  } = useProducts();
+
+  const {searchResults, isLoading: isSearching, search} = useSearchProducts();
+
+  // Determine if we're in search mode
+  const isSearchMode = debouncedSearch.length > 0;
+
+  // Combined data source - either search results or regular products
+  const displayedProducts = isSearchMode ? searchResults : products;
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
@@ -37,30 +56,62 @@ const ProductsScreen = () => {
   // Determine number of columns based on orientation
   const numColumns = isLandscape ? 4 : 2;
 
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+  // Update search when debounced value changes
+  React.useEffect(() => {
+    if (debouncedSearch) {
+      search(debouncedSearch);
+    }
+  }, [debouncedSearch, search]);
 
   const handleProductPress = (product: Product) => {
     navigation.navigate('ProductDetails', product);
   };
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      searchProducts(searchQuery);
-    } else {
-      fetchProducts();
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchQuery('');
-    fetchProducts();
+  const handleClearSearch = () => {
+    setSearchInput('');
   };
 
   const handleAddProduct = () => {
     // This will be implemented in Increment 5
     console.log('Add product pressed');
+  };
+
+  const handleRefresh = useCallback(() => {
+    refetchProducts();
+  }, [refetchProducts]);
+
+  const renderFooter = () => {
+    if (!pagination || (!pagination.hasNextPage && !pagination.hasPrevPage)) {
+      return null;
+    }
+
+    return (
+      <View style={styles.paginationContainer}>
+        {pagination.hasPrevPage && (
+          <TouchableOpacity
+            style={styles.paginationButton}
+            onPress={prevPage}
+            disabled={isLoadingProducts}>
+            <Icon name="chevron-left" size={24} color={colors.text} />
+            <Text style={styles.paginationText}>Previous</Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.paginationInfo}>
+          Page {pagination.currentPage} of {pagination.totalPages}
+        </Text>
+
+        {pagination.hasNextPage && (
+          <TouchableOpacity
+            style={styles.paginationButton}
+            onPress={nextPage}
+            disabled={isLoadingProducts}>
+            <Text style={styles.paginationText}>Next</Text>
+            <Icon name="chevron-right" size={24} color={colors.text} />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
   };
 
   const styles = StyleSheet.create({
@@ -154,9 +205,40 @@ const ProductsScreen = () => {
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
     },
+    paginationContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    paginationButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 8,
+    },
+    paginationText: {
+      ...getFontStyle('medium', 16),
+      color: colors.primary,
+    },
+    paginationInfo: {
+      ...getFontStyle('regular', 14),
+      color: colors.text,
+    },
+    searchResultText: {
+      ...getFontStyle('regular', 14),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      marginTop: 8,
+      marginHorizontal: 16,
+    },
   });
 
-  if (isLoading) {
+  // Display loading state
+  if (
+    (isLoadingProducts && !displayedProducts.length) ||
+    (isSearching && isSearchMode && !searchResults.length)
+  ) {
     return (
       <SafeAreaView
         style={[styles.container, styles.loadingContainer]}
@@ -166,12 +248,15 @@ const ProductsScreen = () => {
           backgroundColor={colors.background}
         />
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.emptyText}>Loading products...</Text>
+        <Text style={styles.emptyText}>
+          {isSearchMode ? 'Searching...' : 'Loading products...'}
+        </Text>
       </SafeAreaView>
     );
   }
 
-  if (error) {
+  // Display error state
+  if (productsError && !isSearchMode) {
     return (
       <SafeAreaView
         style={[styles.container, styles.errorContainer]}
@@ -180,17 +265,20 @@ const ProductsScreen = () => {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.background}
         />
-        <Text style={styles.errorText}>Error loading products: {error}</Text>
+        <Text style={styles.errorText}>
+          Error loading products: {productsError}
+        </Text>
         <TouchableOpacity
           style={styles.retryButton}
-          onPress={() => fetchProducts()}>
+          onPress={() => refetchProducts()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  if (!products.length) {
+  // Display empty state
+  if (!displayedProducts.length) {
     return (
       <SafeAreaView
         style={[styles.container, styles.emptyContainer]}
@@ -200,7 +288,9 @@ const ProductsScreen = () => {
           backgroundColor={colors.background}
         />
         <Text style={styles.emptyText}>
-          No products found. Check back later!
+          {isSearchMode
+            ? `No products found matching "${debouncedSearch}"`
+            : 'No products found. Check back later!'}
         </Text>
         <TouchableOpacity
           style={styles.addButton}
@@ -235,27 +325,32 @@ const ProductsScreen = () => {
             style={styles.searchInput}
             placeholder="Search products..."
             placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
+            value={searchInput}
+            onChangeText={setSearchInput}
             testID="search-input"
           />
-          {searchQuery ? (
-            <TouchableOpacity onPress={clearSearch} style={styles.searchButton}>
+          {searchInput ? (
+            <TouchableOpacity
+              onPress={handleClearSearch}
+              style={styles.searchButton}>
               <Icon name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              onPress={handleSearch}
-              style={styles.searchButton}>
-              <Icon name="magnify" size={24} color={colors.text} />
-            </TouchableOpacity>
+            <Icon name="magnify" size={24} color={colors.text} />
           )}
         </View>
       </View>
 
+      {isSearchMode && (
+        <Text style={styles.searchResultText}>
+          {searchResults.length > 0
+            ? `Found ${searchResults.length} results for "${debouncedSearch}"`
+            : ''}
+        </Text>
+      )}
+
       <FlatList
-        data={products}
+        data={displayedProducts}
         keyExtractor={item => item._id}
         renderItem={({item}) => (
           <ProductCard
@@ -267,6 +362,21 @@ const ProductsScreen = () => {
         numColumns={numColumns}
         contentContainerStyle={styles.list}
         testID="products-list"
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoadingProducts}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        ListFooterComponent={renderFooter}
+        onEndReached={() => {
+          if (!isSearchMode && pagination?.hasNextPage) {
+            nextPage();
+          }
+        }}
+        onEndReachedThreshold={0.3}
       />
 
       <TouchableOpacity
