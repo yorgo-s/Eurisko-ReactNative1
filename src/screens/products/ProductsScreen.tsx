@@ -1,3 +1,5 @@
+// src/screens/products/ProductsScreen.tsx
+
 import React, {useContext, useState, useCallback} from 'react';
 import {
   View,
@@ -16,9 +18,9 @@ import {ThemeContext} from '../../context/ThemeContext';
 import ProductCard from '../../components/products/ProductCard';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Product} from '../../api/products';
-import {useProducts, useSearchProducts} from '../../hooks/useProducts';
+import {Product, productsApi} from '../../api/products';
 import {useDebounce} from '../../hooks/useDebounce';
+import {useInfiniteQuery, useQuery} from '@tanstack/react-query';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -30,25 +32,118 @@ const ProductsScreen = () => {
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 500); // Debounce search input
 
-  // Using our custom hooks for products data
+  // State to track whether we're searching
+  const [isSearchActive, setIsSearchActive] = useState(false);
+
+  // Infinite query for products
   const {
-    products,
+    data: productsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading: isLoadingProducts,
     error: productsError,
     refetch: refetchProducts,
-    pagination,
-    nextPage,
-    prevPage,
-    updateParams,
-  } = useProducts();
+  } = useInfiniteQuery({
+    queryKey: ['products'],
+    queryFn: async ({pageParam}) => {
+      const response = await productsApi.getProducts({
+        page: pageParam,
+        limit: 6, // Fetch 6 products per page
+      });
+      return response;
+    },
+    initialPageParam: 1, // Added to fix the TypeScript error
+    getNextPageParam: lastPage => {
+      if (lastPage.pagination?.hasNextPage) {
+        return lastPage.pagination.currentPage + 1;
+      }
+      return undefined;
+    },
+    enabled: !isSearchActive,
+  });
 
-  const {searchResults, isLoading: isSearching, search} = useSearchProducts();
+  // Function to filter search results more precisely
+  const getFilteredSearchResults = (results: Product[], query: string) => {
+    if (!query.trim()) return results;
 
-  // Determine if we're in search mode
-  const isSearchMode = debouncedSearch.length > 0;
+    const searchTerms = query.toLowerCase().trim().split(/\s+/);
 
-  // Combined data source - either search results or regular products
-  const displayedProducts = isSearchMode ? searchResults : products;
+    return results.filter(product => {
+      // Check if all search terms are present in the product
+      return searchTerms.every(term => {
+        const title = product.title.toLowerCase();
+        const description = product.description.toLowerCase();
+
+        // Exact match for model numbers (like "14" in "iPhone 14")
+        if (!isNaN(Number(term))) {
+          // Look for the exact number with boundaries
+          const modelRegex = new RegExp(`\\b${term}\\b`);
+          return modelRegex.test(title) || modelRegex.test(description);
+        }
+
+        // For text terms, we can be a bit more lenient
+        return title.includes(term) || description.includes(term);
+      });
+    });
+  };
+
+  // Query for search results with improved logic
+  const {
+    data: searchData,
+    isLoading: isSearching,
+    error: searchError,
+    refetch: refetchSearch,
+  } = useQuery({
+    queryKey: ['productSearch', debouncedSearch],
+    queryFn: async () => {
+      try {
+        // First try the API's search endpoint
+        const result = await productsApi.searchProducts(debouncedSearch);
+
+        // If we got results, good. We'll filter them more precisely in our memo
+        if (result.data && result.data.length > 0) {
+          return result;
+        }
+
+        // If no results and we're searching for a specific model number,
+        // try to get all products and filter client-side
+        if (!isNaN(Number(debouncedSearch)) || debouncedSearch.match(/\d+/)) {
+          const allProductsResult = await productsApi.getProducts({limit: 30});
+          return {
+            success: true,
+            data: allProductsResult.data || [],
+          };
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Search error:', error);
+        throw error;
+      }
+    },
+    enabled: isSearchActive && debouncedSearch.length > 0,
+  });
+
+  // Update search active state when search input changes
+  React.useEffect(() => {
+    setIsSearchActive(debouncedSearch.length > 0);
+  }, [debouncedSearch]);
+
+  // Flatten the pages of products for display
+  const allProducts = React.useMemo(() => {
+    if (!productsData?.pages) return [];
+    return productsData.pages.flatMap(page => page.data || []);
+  }, [productsData]);
+
+  // Get filtered search results
+  const searchResults = React.useMemo(() => {
+    if (!searchData?.data) return [];
+    return getFilteredSearchResults(searchData.data, debouncedSearch);
+  }, [searchData, debouncedSearch]);
+
+  // Display products based on whether search is active or not
+  const displayedProducts = isSearchActive ? searchResults : allProducts;
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
@@ -56,60 +151,50 @@ const ProductsScreen = () => {
   // Determine number of columns based on orientation
   const numColumns = isLandscape ? 4 : 2;
 
-  // Update search when debounced value changes
-  React.useEffect(() => {
-    if (debouncedSearch) {
-      search(debouncedSearch);
-    }
-  }, [debouncedSearch, search]);
-
   const handleProductPress = (product: Product) => {
     navigation.navigate('ProductDetails', product);
   };
 
   const handleClearSearch = () => {
     setSearchInput('');
+    setIsSearchActive(false);
+  };
+
+  const handleSearch = () => {
+    if (searchInput.trim().length > 0) {
+      setIsSearchActive(true);
+      refetchSearch();
+    }
   };
 
   const handleAddProduct = () => {
-    // This will be implemented in Increment 5
+    // This will be implemented in a future increment
     console.log('Add product pressed');
   };
 
   const handleRefresh = useCallback(() => {
-    refetchProducts();
-  }, [refetchProducts]);
-
-  const renderFooter = () => {
-    if (!pagination || (!pagination.hasNextPage && !pagination.hasPrevPage)) {
-      return null;
+    if (isSearchActive) {
+      refetchSearch();
+    } else {
+      refetchProducts();
     }
+  }, [refetchProducts, refetchSearch, isSearchActive]);
+
+  // Handle loading more products on scroll
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage && !isSearchActive) {
+      fetchNextPage();
+    }
+  };
+
+  // Footer component to show loading indicator when fetching more products
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
 
     return (
-      <View style={styles.paginationContainer}>
-        {pagination.hasPrevPage && (
-          <TouchableOpacity
-            style={styles.paginationButton}
-            onPress={prevPage}
-            disabled={isLoadingProducts}>
-            <Icon name="chevron-left" size={24} color={colors.text} />
-            <Text style={styles.paginationText}>Previous</Text>
-          </TouchableOpacity>
-        )}
-
-        <Text style={styles.paginationInfo}>
-          Page {pagination.currentPage} of {pagination.totalPages}
-        </Text>
-
-        {pagination.hasNextPage && (
-          <TouchableOpacity
-            style={styles.paginationButton}
-            onPress={nextPage}
-            disabled={isLoadingProducts}>
-            <Text style={styles.paginationText}>Next</Text>
-            <Icon name="chevron-right" size={24} color={colors.text} />
-          </TouchableOpacity>
-        )}
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.footerText}>Loading more products...</Text>
       </View>
     );
   };
@@ -205,25 +290,15 @@ const ProductsScreen = () => {
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
     },
-    paginationContainer: {
+    footerLoader: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       alignItems: 'center',
       padding: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
     },
-    paginationButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 8,
-    },
-    paginationText: {
-      ...getFontStyle('medium', 16),
-      color: colors.primary,
-    },
-    paginationInfo: {
+    footerText: {
       ...getFontStyle('regular', 14),
+      marginLeft: 8,
       color: colors.text,
     },
     searchResultText: {
@@ -237,7 +312,7 @@ const ProductsScreen = () => {
   // Display loading state
   if (
     (isLoadingProducts && !displayedProducts.length) ||
-    (isSearching && isSearchMode && !searchResults.length)
+    (isSearching && isSearchActive && !searchResults.length)
   ) {
     return (
       <SafeAreaView
@@ -249,14 +324,15 @@ const ProductsScreen = () => {
         />
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.emptyText}>
-          {isSearchMode ? 'Searching...' : 'Loading products...'}
+          {isSearchActive ? 'Searching...' : 'Loading products...'}
         </Text>
       </SafeAreaView>
     );
   }
 
   // Display error state
-  if (productsError && !isSearchMode) {
+  if ((productsError && !isSearchActive) || (searchError && isSearchActive)) {
+    const error = isSearchActive ? searchError : productsError;
     return (
       <SafeAreaView
         style={[styles.container, styles.errorContainer]}
@@ -265,12 +341,8 @@ const ProductsScreen = () => {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.background}
         />
-        <Text style={styles.errorText}>
-          Error loading products: {productsError}
-        </Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => refetchProducts()}>
+        <Text style={styles.errorText}>Error: {(error as Error).message}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -288,7 +360,7 @@ const ProductsScreen = () => {
           backgroundColor={colors.background}
         />
         <Text style={styles.emptyText}>
-          {isSearchMode
+          {isSearchActive
             ? `No products found matching "${debouncedSearch}"`
             : 'No products found. Check back later!'}
         </Text>
@@ -327,6 +399,7 @@ const ProductsScreen = () => {
             placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
             value={searchInput}
             onChangeText={setSearchInput}
+            onSubmitEditing={handleSearch}
             testID="search-input"
           />
           {searchInput ? (
@@ -336,16 +409,20 @@ const ProductsScreen = () => {
               <Icon name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           ) : (
-            <Icon name="magnify" size={24} color={colors.text} />
+            <TouchableOpacity
+              onPress={handleSearch}
+              style={styles.searchButton}>
+              <Icon name="magnify" size={24} color={colors.text} />
+            </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {isSearchMode && (
+      {isSearchActive && (
         <Text style={styles.searchResultText}>
           {searchResults.length > 0
             ? `Found ${searchResults.length} results for "${debouncedSearch}"`
-            : ''}
+            : `No products found matching "${debouncedSearch}"`}
         </Text>
       )}
 
@@ -364,19 +441,15 @@ const ProductsScreen = () => {
         testID="products-list"
         refreshControl={
           <RefreshControl
-            refreshing={isLoadingProducts}
+            refreshing={isLoadingProducts || isSearching}
             onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
-        onEndReached={() => {
-          if (!isSearchMode && pagination?.hasNextPage) {
-            nextPage();
-          }
-        }}
-        onEndReachedThreshold={0.3}
       />
 
       <TouchableOpacity

@@ -48,8 +48,31 @@ export const productsApi = {
 
   // Search products
   searchProducts: async (query: string) => {
-    const response = await apiClient.get(`/api/products/search?query=${query}`);
-    return response.data;
+    try {
+      // Make sure query is encoded properly
+      const encodedQuery = encodeURIComponent(query.trim());
+      const response = await apiClient.get(
+        `/api/products/search?query=${encodedQuery}`,
+      );
+
+      // If the response has no data, return an empty array
+      if (!response.data.success || !response.data.data) {
+        return {success: true, data: []};
+      }
+
+      // If searching for a number, also try to match by price
+      if (!isNaN(Number(query))) {
+        const priceQuery = Number(query);
+        // Let the API search handle the exact matches
+        // If we want to also search for products around that price, we could
+        // add additional filtering here
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error searching products:', error);
+      throw error;
+    }
   },
 
   // Get product by ID
