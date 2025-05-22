@@ -2,6 +2,8 @@ import React, {useContext} from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import ProductsScreen from '../screens/products/ProductsScreen';
 import ProductDetailsScreen from '../screens/products/ProductDetailsScreen';
+// import AddProductScreen from '../screens/products/AddProductScreen';
+// import EditProductScreen from '../screens/products/EditProductScreen';
 import {ThemeContext} from '../context/ThemeContext';
 
 const Stack = createStackNavigator();
@@ -27,25 +29,29 @@ const ProductsNavigator = () => {
       <Stack.Screen
         name="Products"
         component={ProductsScreen}
-        options={{title: 'All Products', headerShown: false}}
+        options={{headerShown: false}}
       />
       <Stack.Screen
         name="ProductDetails"
         component={ProductDetailsScreen}
         options={({route}) => ({
           title: route.params?.title || 'Product Details',
-          headerShown: true, // Make sure header is shown
-          headerTitleStyle: {
-            ...getFontStyle('bold', 18),
-          },
-          headerTintColor: colors.text, // Color for the back button and title
-          headerStyle: {
-            backgroundColor: colors.background,
-            elevation: 0, // Remove shadow on Android
-            shadowOpacity: 0, // Remove shadow on iOS
-          },
         })}
       />
+      {/* <Stack.Screen
+        name="AddProduct"
+        component={AddProductScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="EditProduct"
+        component={EditProductScreen}
+        options={{
+          headerShown: false,
+        }}
+      /> */}
     </Stack.Navigator>
   );
 };

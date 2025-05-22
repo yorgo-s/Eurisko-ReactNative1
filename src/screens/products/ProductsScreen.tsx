@@ -1,5 +1,3 @@
-// src/screens/products/ProductsScreen.tsx
-
 import React, {useContext, useState, useCallback} from 'react';
 import {
   View,
@@ -171,8 +169,7 @@ const ProductsScreen = () => {
   };
 
   const handleAddProduct = () => {
-    // This will be implemented in a future increment
-    console.log('Add product pressed');
+    navigation.navigate('AddProduct');
   };
 
   const handleRefresh = useCallback(() => {

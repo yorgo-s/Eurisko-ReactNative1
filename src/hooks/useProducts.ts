@@ -82,7 +82,7 @@ export const useProductDetails = (productId: string) => {
   return useQuery({
     queryKey: ['product', productId],
     queryFn: () => productsApi.getProductById(productId),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: !!productId,
   });
 };
 

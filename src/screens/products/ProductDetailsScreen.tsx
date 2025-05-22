@@ -1,3 +1,5 @@
+// src/screens/products/ProductDetailsScreen.tsx
+
 import React, {useContext} from 'react';
 import {
   View,
@@ -10,17 +12,28 @@ import {
   StatusBar,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {ThemeContext} from '../../context/ThemeContext';
 import {ProductStackParamList} from '../../navigation/types';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useProductDetails} from '../../hooks/useProducts';
+import {useAuthStore} from '../../store/authStore';
+import {useMutation} from '@tanstack/react-query';
+import {productsApi} from '../../api/products';
+import {queryClient} from '../../api/queryClient';
+
+type ProductDetailsScreenNavigationProp = StackNavigationProp<
+  ProductStackParamList,
+  'ProductDetails'
+>;
 
 const ProductDetailsScreen = () => {
   const route = useRoute<RouteProp<ProductStackParamList, 'ProductDetails'>>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<ProductDetailsScreenNavigationProp>();
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
   const insets = useSafeAreaInsets();
@@ -28,6 +41,7 @@ const ProductDetailsScreen = () => {
 
   // Get product ID from route params
   const productId = route.params._id;
+  const {user} = useAuthStore(); // Get current user
 
   // Use React Query hook to fetch product details
   const {
@@ -39,6 +53,29 @@ const ProductDetailsScreen = () => {
 
   // Extract product from data
   const product = productData?.data;
+
+  // Check if current user owns this product
+  const isOwner = user && product?.user?._id === user.id;
+
+  // Mutation for deleting product
+  const deleteProductMutation = useMutation({
+    mutationFn: (productId: string) => productsApi.deleteProduct(productId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ['products']});
+      Alert.alert('Success', 'Product deleted successfully!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onError: (error: any) => {
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to delete product',
+      );
+    },
+  });
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
@@ -70,6 +107,29 @@ const ProductDetailsScreen = () => {
     // In a real app, we would add the product to cart
     // For this assignment, no functionality is required
     console.log('Product added to cart:', productId);
+  };
+
+  // Add these handler functions
+  const handleEditProduct = () => {
+    navigation.navigate('EditProduct', product);
+  };
+
+  const handleDeleteProduct = () => {
+    Alert.alert(
+      'Delete Product',
+      'Are you sure you want to delete this product? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteProductMutation.mutate(productId),
+        },
+      ],
+    );
   };
 
   const styles = StyleSheet.create({
@@ -110,8 +170,8 @@ const ProductDetailsScreen = () => {
     },
     descriptionTitle: {
       ...typography.subtitle,
-      fontSize: 20, // Larger subtitle (derived from typography)
-      marginBottom: 8, // More space
+      fontSize: 20,
+      marginBottom: 8,
     },
     description: {
       ...typography.body,
@@ -149,6 +209,40 @@ const ProductDetailsScreen = () => {
       flexDirection: 'row',
     },
     addToCartButtonText: {
+      ...getFontStyle('semiBold', 18),
+      color: '#FFFFFF',
+      marginLeft: 8,
+    },
+    ownerActions: {
+      flexDirection: 'row',
+      marginBottom: 16,
+    },
+    editButton: {
+      backgroundColor: colors.primary,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      marginRight: 8,
+      flexDirection: 'row',
+    },
+    editButtonText: {
+      ...getFontStyle('semiBold', 18),
+      color: '#FFFFFF',
+      marginLeft: 8,
+    },
+    deleteButton: {
+      backgroundColor: '#D32F2F',
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      marginLeft: 8,
+      flexDirection: 'row',
+    },
+    deleteButtonText: {
       ...getFontStyle('semiBold', 18),
       color: '#FFFFFF',
       marginLeft: 8,
@@ -283,23 +377,52 @@ const ProductDetailsScreen = () => {
               </View>
             </View>
 
-            <View style={styles.buttonsContainer}>
-              <TouchableOpacity
-                style={styles.shareButton}
-                onPress={handleShare}
-                testID="share-button">
-                <Icon name="share-variant" size={20} color={colors.text} />
-                <Text style={styles.shareButtonText}>Share</Text>
-              </TouchableOpacity>
+            {isOwner ? (
+              // Owner actions - Edit and Delete
+              <View style={styles.ownerActions}>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={handleEditProduct}
+                  testID="edit-button">
+                  <Icon name="pencil" size={20} color="#FFFFFF" />
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.addToCartButton}
-                onPress={handleAddToCart}
-                testID="add-to-cart-button">
-                <Icon name="cart-plus" size={20} color="#FFFFFF" />
-                <Text style={styles.addToCartButtonText}>Add to Cart</Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={handleDeleteProduct}
+                  disabled={deleteProductMutation.isPending}
+                  testID="delete-button">
+                  {deleteProductMutation.isPending ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Icon name="delete" size={20} color="#FFFFFF" />
+                      <Text style={styles.deleteButtonText}>Delete</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // Regular user actions - Share and Add to Cart
+              <View style={styles.buttonsContainer}>
+                <TouchableOpacity
+                  style={styles.shareButton}
+                  onPress={handleShare}
+                  testID="share-button">
+                  <Icon name="share-variant" size={20} color={colors.text} />
+                  <Text style={styles.shareButtonText}>Share</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.addToCartButton}
+                  onPress={handleAddToCart}
+                  testID="add-to-cart-button">
+                  <Icon name="cart-plus" size={20} color="#FFFFFF" />
+                  <Text style={styles.addToCartButtonText}>Add to Cart</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
