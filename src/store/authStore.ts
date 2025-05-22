@@ -135,6 +135,7 @@ export const useAuthStore = create<AuthState>()(
             set({isLoading: false, error: 'Failed to fetch profile'});
           }
         } catch (error: any) {
+          console.error('Fetch profile error:', error);
           set({
             isLoading: false,
             error:
@@ -145,17 +146,23 @@ export const useAuthStore = create<AuthState>()(
 
       updateUserProfile: async data => {
         try {
+          console.log('Updating profile with data:', data);
           set({isLoading: true, error: null});
+
           const response = await authApi.updateProfile(data);
+          console.log('Update profile response:', response);
 
           if (response.success) {
             set({user: response.data.user, isLoading: false});
+            console.log('Profile updated successfully');
             return true;
           } else {
+            console.log('Profile update failed:', response);
             set({isLoading: false, error: 'Failed to update profile'});
             return false;
           }
         } catch (error: any) {
+          console.error('Update profile error:', error);
           set({
             isLoading: false,
             error:
