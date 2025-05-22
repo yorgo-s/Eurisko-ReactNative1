@@ -44,8 +44,8 @@ const ProductsNavigator = () => {
         options={{
           headerShown: false,
         }}
-      />
-      <Stack.Screen
+      /> */}
+      {/* <Stack.Screen
         name="EditProduct"
         component={EditProductScreen}
         options={{
