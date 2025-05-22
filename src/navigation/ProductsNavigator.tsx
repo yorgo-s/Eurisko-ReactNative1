@@ -2,7 +2,7 @@ import React, {useContext} from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import ProductsScreen from '../screens/products/ProductsScreen';
 import ProductDetailsScreen from '../screens/products/ProductDetailsScreen';
-// import AddProductScreen from '../screens/products/AddProductScreen';
+import AddProductScreen from '../screens/products/AddProductScreen';
 // import EditProductScreen from '../screens/products/EditProductScreen';
 import {ThemeContext} from '../context/ThemeContext';
 
@@ -38,13 +38,13 @@ const ProductsNavigator = () => {
           title: route.params?.title || 'Product Details',
         })}
       />
-      {/* <Stack.Screen
+      <Stack.Screen
         name="AddProduct"
         component={AddProductScreen}
         options={{
           headerShown: false,
         }}
-      /> */}
+      />
       {/* <Stack.Screen
         name="EditProduct"
         component={EditProductScreen}
