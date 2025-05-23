@@ -77,8 +77,11 @@ export const useSearchProducts = () => {
   };
 };
 
-// FIXED: Hook for getting a product by ID with better error handling
-export const useProductDetails = (productId: string) => {
+// FIXED: Hook for getting a product by ID with better error handling and options support
+export const useProductDetails = (
+  productId: string,
+  options?: {enabled?: boolean; retry?: number},
+) => {
   return useQuery({
     queryKey: ['product', productId],
     queryFn: async () => {
@@ -87,6 +90,7 @@ export const useProductDetails = (productId: string) => {
       }
 
       try {
+        console.log('Fetching product details for ID:', productId);
         const response = await productsApi.getProductById(productId);
 
         // Check if the response has the expected structure
@@ -99,6 +103,7 @@ export const useProductDetails = (productId: string) => {
           throw new Error(response.message || 'Failed to fetch product');
         }
 
+        console.log('Product details response:', response);
         return response;
       } catch (error: any) {
         console.error('Product fetch error:', error);
@@ -115,13 +120,13 @@ export const useProductDetails = (productId: string) => {
         }
       }
     },
-    enabled: !!productId && productId.length > 0,
+    enabled: options?.enabled !== false && !!productId && productId.length > 0,
     retry: (failureCount, error) => {
       // Don't retry for 404 errors
       if (error?.message?.includes('not found')) {
         return false;
       }
-      return failureCount < 2;
+      return failureCount < (options?.retry || 2);
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });

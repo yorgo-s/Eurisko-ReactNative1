@@ -27,6 +27,7 @@ import {
 } from 'react-native-image-picker';
 import {useCreateProduct} from '../../hooks/useProducts';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import LocationPicker from '../../components/common/LocationPicker';
 
 // Validation schema
 const productSchema = z.object({
@@ -501,6 +502,17 @@ const AddProductScreen = () => {
             <Text style={styles.modalTitle}>Choose Location</Text>
             <View style={{width: 24}} />
           </View>
+
+          {/* <LocationPicker
+            visible={showLocationPicker}
+            onClose={() => setShowLocationPicker(false)}
+            onLocationSelect={location => {
+              setValue('location', location);
+              setShowLocationPicker(false);
+            }}
+            initialLocation={watch('location')}
+            title="Choose Product Location"
+          /> */}
 
           <View style={styles.mapContainer}>
             <MapView

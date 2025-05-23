@@ -5,8 +5,16 @@ import ProductDetailsScreen from '../screens/products/ProductDetailsScreen';
 import AddProductScreen from '../screens/products/AddProductScreen';
 import EditProductScreen from '../screens/products/EditProductScreen';
 import {ThemeContext} from '../context/ThemeContext';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 
 const Stack = createStackNavigator();
+
+// Wrap ProductDetailsScreen with ErrorBoundary
+const SafeProductDetailsScreen = (props: any) => (
+  <ErrorBoundary>
+    <ProductDetailsScreen {...props} />
+  </ErrorBoundary>
+);
 
 const ProductsNavigator = () => {
   const {colors, getFontStyle} = useContext(ThemeContext);
@@ -33,7 +41,7 @@ const ProductsNavigator = () => {
       />
       <Stack.Screen
         name="ProductDetails"
-        component={ProductDetailsScreen}
+        component={SafeProductDetailsScreen}
         options={({route}) => ({
           title: route.params?.title || 'Product Details',
         })}
