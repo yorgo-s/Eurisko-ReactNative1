@@ -437,35 +437,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         {/* Map Container */}
         <View style={styles.mapContainer}>
           <MapView
-            style={styles.map}
             provider={PROVIDER_GOOGLE}
-            region={mapRegion}
-            onPress={handleMapPress}
-            onMapReady={() => setMapReady(true)}
-            showsUserLocation={true}
-            showsMyLocationButton={false}
-            loadingEnabled={true}
-            loadingIndicatorColor={colors.primary}
-            loadingBackgroundColor={colors.background}>
-            <Marker
-              coordinate={{
-                latitude: selectedLocation.latitude,
-                longitude: selectedLocation.longitude,
-              }}
-              title={locationName || 'Selected Location'}
-              draggable={true}
-              onDragEnd={handleMarkerDrag}>
-              <View
-                style={{
-                  backgroundColor: colors.primary,
-                  padding: 8,
-                  borderRadius: 20,
-                  borderWidth: 2,
-                  borderColor: '#FFFFFF',
-                }}>
-                <Icon name="map-marker" size={16} color="#FFFFFF" />
-              </View>
-            </Marker>
+            style={styles.map}
+            //   initialRegion={initialRegion}
+            onPress={handleMapPress}>
+            {selectedLocation && <Marker coordinate={selectedLocation} />}
+                  
           </MapView>
 
           {/* Controls Overlay */}

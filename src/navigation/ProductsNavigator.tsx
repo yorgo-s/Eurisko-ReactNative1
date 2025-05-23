@@ -42,7 +42,7 @@ const ProductsNavigator = () => {
       <Stack.Screen
         name="ProductDetails"
         component={SafeProductDetailsScreen}
-        options={({route}) => ({
+        options={({route}: {route: {params?: {title?: string}}}) => ({
           title: route.params?.title || 'Product Details',
         })}
       />

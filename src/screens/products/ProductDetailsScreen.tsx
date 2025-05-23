@@ -17,57 +17,15 @@ import {ThemeContext} from '../../context/ThemeContext';
 import {ProductStackParamList} from '../../navigation/types';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {useProductDetails} from '../../hooks/useProducts';
+import {useProductDetails, useDeleteProduct} from '../../hooks/useProducts';
 import {useAuthStore} from '../../store/authStore';
-import {useMutation} from '@tanstack/react-query';
-import {productsApi} from '../../api/products';
 import {queryClient} from '../../api/queryClient';
 
-// Import components with error boundaries
+// Import components
 import ContactSeller from '../../components/products/ContactSeller';
 import ProductImageGallery from '../../components/products/ProductImageGallery';
 import ProductLocationMap from '../../components/products/ProductLocationMap';
-
-// Simple sharing component to avoid complex imports
-const SimpleProductSharing: React.FC<{product: any}> = ({product}) => {
-  const {colors, getFontStyle} = useContext(ThemeContext);
-
-  const handleShare = () => {
-    Alert.alert('Share Product', `Share ${product.title}`, [{text: 'OK'}]);
-  };
-
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        borderRadius: 12,
-        padding: 16,
-        marginVertical: 8,
-      }}>
-      <TouchableOpacity
-        onPress={handleShare}
-        style={{
-          backgroundColor: colors.primary,
-          paddingVertical: 12,
-          paddingHorizontal: 20,
-          borderRadius: 8,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <Icon name="share-variant" size={20} color="#FFFFFF" />
-        <Text
-          style={{
-            ...getFontStyle('semiBold', 16),
-            color: '#FFFFFF',
-            marginLeft: 8,
-          }}>
-          Share Product
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
+import ImageViewing from 'react-native-image-viewing';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -84,15 +42,16 @@ const ProductDetailsScreen = () => {
   const insets = useSafeAreaInsets();
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
 
+  // State for image viewer
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [imageViewerIndex, setImageViewerIndex] = useState(0);
+
   // Get product data from route params
   const routeProduct = route.params;
   const productId = routeProduct?._id;
   const {user} = useAuthStore();
 
-  console.log('ProductDetailsScreen - productId:', productId);
-  console.log('ProductDetailsScreen - routeProduct:', routeProduct);
-
-  // SAFE: Only fetch from API if we have a valid productId, but don't crash if API fails
+  // Fetch product details from API
   const {
     data: productData,
     isLoading,
@@ -100,114 +59,87 @@ const ProductDetailsScreen = () => {
     refetch,
   } = useProductDetails(productId || '', {
     enabled: !!productId,
-    retry: 1, // Reduce retries to avoid issues
+    retry: 1,
   });
-
-  // SAFE: Product data extraction with multiple fallbacks
-  const product = useMemo(() => {
-    try {
-      // Priority 1: Fresh API data
-      if (productData?.success && productData.data) {
-        console.log('Using API data:', productData.data);
-        return productData.data;
-      }
-
-      // Priority 2: Route params
-      if (routeProduct && routeProduct._id) {
-        console.log('Using route params data:', routeProduct);
-        return routeProduct;
-      }
-
-      console.log('No product data available');
-      return null;
-    } catch (err) {
-      console.error('Error in product data extraction:', err);
-      return routeProduct || null;
-    }
-  }, [productData, routeProduct]);
-
-  // SAFE: Owner check with multiple safety nets
-  const isOwner = useMemo(() => {
-    try {
-      if (!user || !product) return false;
-
-      const userId = user.id || user._id;
-      const productUserId = product.user?._id || product.user?.id;
-
-      console.log(
-        'Owner check - userId:',
-        userId,
-        'productUserId:',
-        productUserId,
-      );
-      return userId === productUserId;
-    } catch (err) {
-      console.error('Error in owner check:', err);
-      return false;
-    }
-  }, [user, product]);
 
   // Delete mutation
-  const deleteProductMutation = useMutation({
-    mutationFn: (productId: string) => productsApi.deleteProduct(productId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({queryKey: ['products']});
-      Alert.alert('Success', 'Product deleted successfully!', [
-        {text: 'OK', onPress: () => navigation.goBack()},
-      ]);
-    },
-    onError: (error: any) => {
-      console.error('Delete product error:', error);
-      Alert.alert('Error', 'Failed to delete product');
-    },
-  });
+  const deleteProductMutation = useDeleteProduct();
+
+  // Get the product data (from API or route params)
+  const product = useMemo(() => {
+    if (productData?.success && productData.data) {
+      return productData.data;
+    }
+    return routeProduct || null;
+  }, [productData, routeProduct]);
+
+  // Check if current user is the owner
+  const isOwner = useMemo(() => {
+    if (!user || !product) return false;
+
+    const userId = user.id || user._id;
+    const productUserId = product.user?._id || product.user?.id;
+
+    return userId === productUserId;
+  }, [user, product]);
 
   const isLandscape = windowWidth > windowHeight;
 
-  // SAFE: Image URL function
-  const getImageUrl = useCallback((relativeUrl: string) => {
-    try {
-      if (!relativeUrl) return '';
-      if (relativeUrl.startsWith('http')) return relativeUrl;
-      return `https://backend-practice.eurisko.me${relativeUrl}`;
-    } catch (err) {
-      console.error('Error in getImageUrl:', err);
-      return '';
-    }
+  // Handle image press to open viewer
+  const handleImagePress = useCallback((index: number) => {
+    setImageViewerIndex(index);
+    setImageViewerVisible(true);
   }, []);
 
+  // Get full image URL
+  const getImageUrl = useCallback((relativeUrl: string) => {
+    if (!relativeUrl) return '';
+    if (relativeUrl.startsWith('http')) return relativeUrl;
+    return `https://backend-practice.eurisko.me${relativeUrl}`;
+  }, []);
+
+  // Handle edit product
   const handleEditProduct = useCallback(() => {
-    try {
-      if (product) {
-        navigation.navigate('EditProduct', product);
-      }
-    } catch (err) {
-      console.error('Error in handleEditProduct:', err);
-      Alert.alert('Error', 'Cannot edit product at this time');
+    if (product) {
+      navigation.navigate('EditProduct', product);
     }
   }, [product, navigation]);
 
+  // Handle delete product
   const handleDeleteProduct = useCallback(() => {
-    try {
-      if (!productId) return;
+    if (!productId) return;
 
-      Alert.alert(
-        'Delete Product',
-        'Are you sure you want to delete this product?',
-        [
-          {text: 'Cancel', style: 'cancel'},
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => deleteProductMutation.mutate(productId),
+    Alert.alert(
+      'Delete Product',
+      'Are you sure you want to delete this product?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteProductMutation.mutate(productId, {
+              onSuccess: () => {
+                Alert.alert('Success', 'Product deleted successfully!', [
+                  {text: 'OK', onPress: () => navigation.goBack()},
+                ]);
+              },
+              onError: (error: any) => {
+                Alert.alert('Error', 'Failed to delete product');
+              },
+            });
           },
-        ],
-      );
-    } catch (err) {
-      console.error('Error in handleDeleteProduct:', err);
-      Alert.alert('Error', 'Cannot delete product at this time');
-    }
-  }, [productId, deleteProductMutation]);
+        },
+      ],
+    );
+  }, [productId, deleteProductMutation, navigation]);
+
+  // Handle sharing
+  const handleShare = () => {
+    Alert.alert('Share Product', `Share ${product?.title || 'this product'}`, [
+      {text: 'OK'},
+    ]);
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -322,16 +254,32 @@ const ProductDetailsScreen = () => {
       backgroundColor: colors.border,
       marginVertical: 16,
     },
+    shareButton: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginVertical: 8,
+    },
+    shareButtonContent: {
+      backgroundColor: colors.primary,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    shareButtonText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#FFFFFF',
+      marginLeft: 8,
+    },
   });
 
-  // Early returns for error states
+  // Error states
   if (!productId) {
     return (
       <View style={[styles.container, styles.errorContainer]}>
-        <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
         <Icon name="alert-circle" size={48} color={colors.error} />
         <Text style={styles.errorText}>Invalid product ID</Text>
         <TouchableOpacity
@@ -346,10 +294,6 @@ const ProductDetailsScreen = () => {
   if (isLoading && !product) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{...typography.body, marginTop: 16, color: colors.text}}>
           Loading product details...
@@ -361,10 +305,6 @@ const ProductDetailsScreen = () => {
   if (!product) {
     return (
       <View style={[styles.container, styles.errorContainer]}>
-        <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
         <Icon name="package-variant-closed" size={48} color={colors.error} />
         <Text style={styles.errorText}>Product not found</Text>
         <TouchableOpacity
@@ -376,8 +316,9 @@ const ProductDetailsScreen = () => {
     );
   }
 
-  // SAFE: Image processing
+  // Prepare images for viewer
   const productImages = (product.images || []).filter(img => img && img.url);
+  const imageUrls = productImages.map(img => ({uri: getImageUrl(img.url)}));
 
   return (
     <View style={styles.container}>
@@ -385,10 +326,10 @@ const ProductDetailsScreen = () => {
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
+
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        testID="product-details-scroll">
+        contentContainerStyle={styles.scrollContent}>
         <View style={styles.contentWrapper}>
           {/* Image Gallery Section */}
           <View style={styles.imageSection}>
@@ -399,7 +340,7 @@ const ProductDetailsScreen = () => {
                   ? windowHeight - insets.top - insets.bottom
                   : windowHeight * 0.4
               }
-              onImagePress={index => console.log('Image pressed:', index)}
+              onImagePress={handleImagePress}
             />
           </View>
 
@@ -407,10 +348,10 @@ const ProductDetailsScreen = () => {
           <View style={styles.contentContainer}>
             {/* Product Header */}
             <View style={styles.header}>
-              <Text style={styles.title} testID="product-title">
+              <Text style={styles.title}>
                 {product.title || 'Untitled Product'}
               </Text>
-              <Text style={styles.price} testID="product-price">
+              <Text style={styles.price}>
                 ${(product.price || 0).toFixed(2)}
               </Text>
             </View>
@@ -420,8 +361,7 @@ const ProductDetailsScreen = () => {
               <View style={styles.ownerActions}>
                 <TouchableOpacity
                   style={styles.editButton}
-                  onPress={handleEditProduct}
-                  testID="edit-button">
+                  onPress={handleEditProduct}>
                   <Icon name="pencil" size={20} color="#FFFFFF" />
                   <Text style={styles.editButtonText}>Edit</Text>
                 </TouchableOpacity>
@@ -429,8 +369,7 @@ const ProductDetailsScreen = () => {
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={handleDeleteProduct}
-                  disabled={deleteProductMutation.isPending}
-                  testID="delete-button">
+                  disabled={deleteProductMutation.isPending}>
                   {deleteProductMutation.isPending ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
@@ -446,7 +385,7 @@ const ProductDetailsScreen = () => {
             {/* Description */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description} testID="product-description">
+              <Text style={styles.description}>
                 {product.description || 'No description available'}
               </Text>
             </View>
@@ -468,19 +407,35 @@ const ProductDetailsScreen = () => {
             {/* Contact Seller (for non-owners) */}
             {!isOwner && (
               <>
-                <ContactSeller
-                  product={product}
-                  onContactComplete={() => console.log('Contact initiated')}
-                />
+                <ContactSeller product={product} />
                 <View style={styles.divider} />
               </>
             )}
 
-            {/* Simple Sharing */}
-            <SimpleProductSharing product={product} />
+            {/* Share Button */}
+            <View style={styles.shareButton}>
+              <TouchableOpacity
+                style={styles.shareButtonContent}
+                onPress={handleShare}>
+                <Icon name="share-variant" size={20} color="#FFFFFF" />
+                <Text style={styles.shareButtonText}>Share Product</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
+
+      {/* Image Viewer Modal */}
+      <ImageViewing
+        images={imageUrls}
+        imageIndex={imageViewerIndex}
+        visible={imageViewerVisible}
+        onRequestClose={() => setImageViewerVisible(false)}
+        presentationStyle="overFullScreen"
+        backgroundColor={colors.background}
+        doubleTapToZoomEnabled={true}
+        swipeToCloseEnabled={true}
+      />
     </View>
   );
 };
