@@ -3,7 +3,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 import ProductsScreen from '../screens/products/ProductsScreen';
 import ProductDetailsScreen from '../screens/products/ProductDetailsScreen';
 import AddProductScreen from '../screens/products/AddProductScreen';
-// import EditProductScreen from '../screens/products/EditProductScreen';
+import EditProductScreen from '../screens/products/EditProductScreen';
 import {ThemeContext} from '../context/ThemeContext';
 
 const Stack = createStackNavigator();
@@ -45,13 +45,13 @@ const ProductsNavigator = () => {
           headerShown: false,
         }}
       />
-      {/* <Stack.Screen
+      <Stack.Screen
         name="EditProduct"
         component={EditProductScreen}
         options={{
           headerShown: false,
         }}
-      /> */}
+      />
     </Stack.Navigator>
   );
 };
