@@ -265,7 +265,7 @@ const ProductDetailsScreen = () => {
     );
   }
 
-  // Display error state
+  // Display error state - FIXED: Properly handle error message
   if (error || !product) {
     return (
       <View style={[styles.container, styles.errorContainer]}>
@@ -275,7 +275,9 @@ const ProductDetailsScreen = () => {
         />
         <Text style={styles.errorText}>
           {error
-            ? `Error loading product: ${(error as Error).message}`
+            ? `Error loading product: ${
+                error instanceof Error ? error.message : String(error)
+              }`
             : 'Product not found'}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
