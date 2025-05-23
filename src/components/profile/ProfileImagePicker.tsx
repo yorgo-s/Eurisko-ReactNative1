@@ -31,7 +31,11 @@ const ProfileImagePicker: React.FC<ProfileImagePickerProps> = ({
 }) => {
   const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
 
-  const {showImagePicker, isLoading: cameraLoading} = useCamera({
+  const {
+    openCamera,
+    openLibrary,
+    isLoading: cameraLoading,
+  } = useCamera({
     allowMultiple: false,
     maxImages: 1,
     quality: 0.8,
@@ -44,7 +48,7 @@ const ProfileImagePicker: React.FC<ProfileImagePickerProps> = ({
       {
         text: 'Take Photo',
         onPress: async () => {
-          const images = await showImagePicker();
+          const images = await openCamera();
           if (images.length > 0) {
             onImageChange(images[0]);
           }
@@ -53,7 +57,7 @@ const ProfileImagePicker: React.FC<ProfileImagePickerProps> = ({
       {
         text: 'Choose from Library',
         onPress: async () => {
-          const images = await showImagePicker();
+          const images = await openLibrary();
           if (images.length > 0) {
             onImageChange(images[0]);
           }
