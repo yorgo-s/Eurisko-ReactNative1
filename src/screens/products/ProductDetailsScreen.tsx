@@ -1,5 +1,3 @@
-// src/screens/products/ProductDetailsScreen.tsx
-
 import React, {useContext, useState} from 'react';
 import {
   View,
@@ -54,8 +52,9 @@ const ProductDetailsScreen = () => {
 
   // State for image gallery
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showImagePopup, setShowImagePopup] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState('');
+  const [popupPosition, setPopupPosition] = useState({x: 0, y: 0});
   const [isSaving, setIsSaving] = useState(false);
 
   // Use React Query hook to fetch product details
@@ -131,9 +130,25 @@ const ProductDetailsScreen = () => {
     setCurrentImageIndex(index);
   };
 
-  const handleImageLongPress = async (imageUrl: string) => {
+  const handleImageLongPress = async (imageUrl: string, event?: any) => {
     setSelectedImageUrl(imageUrl);
-    setShowSaveModal(true);
+
+    // Get touch position for popup placement
+    if (event && event.nativeEvent) {
+      const {pageX, pageY} = event.nativeEvent;
+      setPopupPosition({
+        x: pageX - 80, // Center the popup
+        y: pageY - 60, // Position above touch point
+      });
+    } else {
+      // Fallback to center of screen
+      setPopupPosition({
+        x: screenWidth / 2 - 80,
+        y: 200,
+      });
+    }
+
+    setShowImagePopup(true);
   };
 
   const requestStoragePermission = async () => {
@@ -193,7 +208,7 @@ const ProductDetailsScreen = () => {
           'Storage permission is required to save images. Please enable it in your device settings.',
         );
         setIsSaving(false);
-        setShowSaveModal(false);
+        setShowImagePopup(false);
         return;
       }
 
@@ -235,9 +250,8 @@ const ProductDetailsScreen = () => {
           console.log('File stats:', fileStats);
 
           setIsSaving(false);
-          setShowSaveModal(false);
+          setShowImagePopup(false);
 
-          // Show success message
           setTimeout(() => {
             Alert.alert(
               'Success!',
@@ -257,7 +271,7 @@ const ProductDetailsScreen = () => {
     } catch (error) {
       console.error('Error saving image:', error);
       setIsSaving(false);
-      setShowSaveModal(false);
+      setShowImagePopup(false);
 
       setTimeout(() => {
         Alert.alert(
@@ -602,69 +616,57 @@ const ProductDetailsScreen = () => {
       color: isDarkMode ? '#AAAAAA' : '#666666',
       marginTop: 8,
     },
-    // Save Image Modal Styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
+    // Save Image Popup Styles
+    popupOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'transparent',
     },
-    modalContainer: {
+    imagePopup: {
+      position: 'absolute',
       backgroundColor: colors.background,
-      borderRadius: 16,
-      padding: 24,
-      margin: 20,
-      minWidth: 280,
-      maxWidth: 320,
+      borderRadius: 12,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      minWidth: 160,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 4},
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    modalTitle: {
-      ...getFontStyle('bold', 18),
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: 8,
-    },
-    modalMessage: {
-      ...getFontStyle('regular', 16),
-      color: isDarkMode ? '#AAAAAA' : '#666666',
-      textAlign: 'center',
-      marginBottom: 24,
-      lineHeight: 22,
-    },
-    modalButtons: {
+    popupOption: {
       flexDirection: 'row',
-      gap: 12,
-    },
-    modalButton: {
-      flex: 1,
+      alignItems: 'center',
       paddingVertical: 12,
       paddingHorizontal: 16,
       borderRadius: 8,
+    },
+    popupOptionActive: {
+      backgroundColor: isDarkMode ? '#333333' : '#F0F0F0',
+    },
+    popupIcon: {
+      marginRight: 12,
+      width: 20,
       alignItems: 'center',
     },
-    cancelButton: {
-      backgroundColor: isDarkMode ? '#333333' : '#E5E5E5',
-    },
-    saveButton: {
-      backgroundColor: colors.primary,
-    },
-    modalButtonText: {
-      ...getFontStyle('semiBold', 16),
-    },
-    cancelButtonText: {
+    popupText: {
+      ...getFontStyle('medium', 16),
       color: colors.text,
+      flex: 1,
     },
-    saveButtonText: {
-      color: '#FFFFFF',
-    },
-    savingContainer: {
-      flexDirection: 'row',
+    loadingIcon: {
+      marginRight: 12,
+      width: 20,
       alignItems: 'center',
-      justifyContent: 'center',
     },
-    savingText: {
-      ...getFontStyle('semiBold', 16),
-      color: '#FFFFFF',
-      marginLeft: 8,
+    disabledOption: {
+      opacity: 0.6,
     },
     errorContainer: {
       flex: 1,
@@ -763,8 +765,8 @@ const ProductDetailsScreen = () => {
                     <TouchableOpacity
                       key={image._id}
                       style={styles.imageContainer}
-                      onLongPress={() =>
-                        handleImageLongPress(getImageUrl(image.url))
+                      onLongPress={event =>
+                        handleImageLongPress(getImageUrl(image.url), event)
                       }
                       activeOpacity={0.9}>
                       <Image
@@ -966,49 +968,62 @@ const ProductDetailsScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Save Image Modal */}
-      <Modal
-        visible={showSaveModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSaveModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Save Image</Text>
-            <Text style={styles.modalMessage}>
-              Do you want to save this image to your device? It will be saved to
-              your Downloads folder.
-            </Text>
-
-            <View style={styles.modalButtons}>
+      {/* Image Popup Menu */}
+      {showImagePopup && (
+        <Modal
+          visible={showImagePopup}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowImagePopup(false)}>
+          <TouchableOpacity
+            style={styles.popupOverlay}
+            activeOpacity={1}
+            onPress={() => setShowImagePopup(false)}>
+            <View
+              style={[
+                styles.imagePopup,
+                {
+                  left: Math.max(
+                    10,
+                    Math.min(popupPosition.x, screenWidth - 170),
+                  ),
+                  top: Math.max(
+                    50,
+                    Math.min(popupPosition.y, windowHeight - 150),
+                  ),
+                },
+              ]}>
+              {/* Save Option */}
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowSaveModal(false)}
+                style={[styles.popupOption, isSaving && styles.disabledOption]}
+                onPress={saveImageToGallery}
                 disabled={isSaving}>
-                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
-                  Cancel
+                <View style={styles.popupIcon}>
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Icon name="download" size={20} color={colors.primary} />
+                  )}
+                </View>
+                <Text style={styles.popupText}>
+                  {isSaving ? 'Saving...' : 'Save Image'}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={saveImageToGallery}
+              {/* Share Option */}
+              {/* <TouchableOpacity
+                style={[styles.popupOption, isSaving && styles.disabledOption]}
+                onPress={handleShareImage}
                 disabled={isSaving}>
-                {isSaving ? (
-                  <View style={styles.savingContainer}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.savingText}>Saving...</Text>
-                  </View>
-                ) : (
-                  <Text style={[styles.modalButtonText, styles.saveButtonText]}>
-                    Save
-                  </Text>
-                )}
-              </TouchableOpacity>
+                <View style={styles.popupIcon}>
+                  <Icon name="share-variant" size={20} color={colors.text} />
+                </View>
+                <Text style={styles.popupText}>Share Image</Text>
+              </TouchableOpacity> */}
             </View>
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </View>
   );
 };
