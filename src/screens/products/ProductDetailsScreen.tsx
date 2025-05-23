@@ -1,5 +1,3 @@
-// src/screens/products/ProductDetailsScreen.tsx
-
 import React, {useContext, useState} from 'react';
 import {
   View,
@@ -13,7 +11,10 @@ import {
   Alert,
   Image,
   Dimensions,
+  Linking,
+  Platform,
 } from 'react-native';
+import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {ThemeContext} from '../../context/ThemeContext';
@@ -156,22 +157,69 @@ const ProductDetailsScreen = () => {
   };
 
   const handleContactSeller = () => {
-    Alert.alert(
-      'Contact Seller',
-      `Would you like to contact ${
-        product?.user?.email || 'the seller'
-      } about this product?`,
-      [
-        {text: 'Cancel'},
-        {
-          text: 'Send Email',
-          onPress: () => {
-            // TODO: Implement email functionality
-            Alert.alert('Email', `Contacting ${product?.user?.email}...`);
-          },
+    if (!product?.user?.email) {
+      Alert.alert('Error', 'Seller contact information not available');
+      return;
+    }
+
+    const subject = `Inquiry about: ${product.title}`;
+    const body =
+      `Hi,\n\n` +
+      `I'm interested in your product "${
+        product.title
+      }" listed for ${product.price.toFixed(2)}.\n\n` +
+      `Could you please provide more information?\n\n` +
+      `Thank you!`;
+
+    const emailUrl = `mailto:${product.user.email}?subject=${encodeURIComponent(
+      subject,
+    )}&body=${encodeURIComponent(body)}`;
+
+    Linking.canOpenURL(emailUrl).then(supported => {
+      if (supported) {
+        Linking.openURL(emailUrl);
+      } else {
+        Alert.alert(
+          'Email Not Available',
+          `No email app found. Please contact: ${product.user?.email}`,
+          [{text: 'OK'}],
+        );
+      }
+    });
+  };
+
+  const handleOpenInMaps = () => {
+    if (!product?.location) return;
+
+    const {latitude, longitude} = product.location;
+    const label = `${product.title} - ${product.location.name}`;
+
+    const appleUrl = `maps:0,0?q=${latitude},${longitude}`;
+    const googleUrl = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encodeURIComponent(
+      label,
+    )})`;
+    const webUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+
+    Alert.alert('Open in Maps', 'Choose your preferred maps application', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: Platform.OS === 'ios' ? 'Apple Maps' : 'Google Maps',
+        onPress: () => {
+          const url = Platform.OS === 'ios' ? appleUrl : googleUrl;
+          Linking.canOpenURL(url).then(supported => {
+            if (supported) {
+              Linking.openURL(url);
+            } else {
+              Linking.openURL(webUrl);
+            }
+          });
         },
-      ],
-    );
+      },
+      {
+        text: 'Web Browser',
+        onPress: () => Linking.openURL(webUrl),
+      },
+    ]);
   };
 
   const styles = StyleSheet.create({
@@ -366,6 +414,68 @@ const ProductDetailsScreen = () => {
       color: '#FFFFFF',
       marginLeft: 8,
     },
+    locationContainer: {
+      marginBottom: 16,
+      borderRadius: 12,
+      overflow: 'hidden',
+      backgroundColor: colors.card,
+    },
+    mapContainer: {
+      height: 200,
+    },
+    map: {
+      flex: 1,
+    },
+    locationInfo: {
+      padding: 16,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    locationHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    locationTitle: {
+      ...getFontStyle('semiBold', 16),
+      color: colors.text,
+      flex: 1,
+    },
+    openButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    openButtonText: {
+      ...getFontStyle('medium', 14),
+      color: '#FFFFFF',
+      marginLeft: 4,
+    },
+    locationName: {
+      ...getFontStyle('regular', 14),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+    },
+    coordinatesText: {
+      ...getFontStyle('regular', 12),
+      color: isDarkMode ? '#888888' : '#999999',
+      marginTop: 4,
+    },
+    noLocationContainer: {
+      height: 200,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+    },
+    noLocationText: {
+      ...getFontStyle('regular', 16),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      marginTop: 8,
+    },
     errorContainer: {
       flex: 1,
       justifyContent: 'center',
@@ -554,6 +664,80 @@ const ProductDetailsScreen = () => {
                 {product.description}
               </Text>
             </View>
+
+            <View style={styles.divider} />
+
+            {/* Location Section */}
+            {product.location ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Location</Text>
+                <View style={styles.locationContainer}>
+                  <View style={styles.mapContainer}>
+                    <MapView
+                      style={styles.map}
+                      provider={PROVIDER_GOOGLE}
+                      initialRegion={{
+                        latitude: product.location.latitude,
+                        longitude: product.location.longitude,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                      scrollEnabled={true}
+                      zoomEnabled={true}
+                      pitchEnabled={false}
+                      rotateEnabled={false}
+                      onPress={handleOpenInMaps}>
+                      <Marker
+                        coordinate={{
+                          latitude: product.location.latitude,
+                          longitude: product.location.longitude,
+                        }}
+                        title={product.title}
+                        description={product.location.name}>
+                        <View
+                          style={{
+                            backgroundColor: colors.primary,
+                            padding: 8,
+                            borderRadius: 20,
+                            borderWidth: 2,
+                            borderColor: '#FFFFFF',
+                          }}>
+                          <Icon name="shopping" size={16} color="#FFFFFF" />
+                        </View>
+                      </Marker>
+                    </MapView>
+                  </View>
+
+                  <View style={styles.locationInfo}>
+                    <View style={styles.locationHeader}>
+                      <Text style={styles.locationTitle} numberOfLines={1}>
+                        📍 {product.location.name}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.openButton}
+                        onPress={handleOpenInMaps}>
+                        <Icon name="directions" size={16} color="#FFFFFF" />
+                        <Text style={styles.openButtonText}>Directions</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.coordinatesText}>
+                      {product.location.latitude.toFixed(6)},{' '}
+                      {product.location.longitude.toFixed(6)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Location</Text>
+                <View style={styles.noLocationContainer}>
+                  <Icon name="map-marker-off" size={32} color={colors.text} />
+                  <Text style={styles.noLocationText}>
+                    Location not available
+                  </Text>
+                </View>
+              </View>
+            )}
 
             <View style={styles.divider} />
 
