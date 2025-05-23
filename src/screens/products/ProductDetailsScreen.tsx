@@ -9,16 +9,8 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   Alert,
-  Image,
   Dimensions,
-  Linking,
-  Platform,
-  PermissionsAndroid,
-  Modal,
 } from 'react-native';
-import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
-import RNFS from 'react-native-fs';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {ThemeContext} from '../../context/ThemeContext';
@@ -53,26 +45,26 @@ const ProductDetailsScreen = () => {
   const insets = useSafeAreaInsets();
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
 
-  // Get product ID from route params
-  const productId = route.params._id;
+  // Get product ID from route params - FIXED: Better null handling
+  const productId = route.params?._id;
   const {user} = useAuthStore();
 
   // State for image viewer
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
 
-  // Use React Query hook to fetch product details
+  // FIXED: Add safety check for productId
   const {
     data: productData,
     isLoading,
     error,
     refetch,
-  } = useProductDetails(productId);
+  } = useProductDetails(productId || '');
 
-  // Extract product from data
-  const product = productData?.data;
+  // Extract product from data - FIXED: Better null handling
+  const product = productData?.success ? productData.data : null;
 
-  // Check if current user owns this product
+  // Check if current user owns this product - FIXED: Better null checks
   const isOwner = user && product?.user?._id === user.id;
 
   // Mutation for deleting product
@@ -100,6 +92,7 @@ const ProductDetailsScreen = () => {
 
   // Function to get the full image URL
   const getImageUrl = (relativeUrl: string) => {
+    if (!relativeUrl) return '';
     if (relativeUrl.startsWith('http')) {
       return relativeUrl;
     }
@@ -107,10 +100,14 @@ const ProductDetailsScreen = () => {
   };
 
   const handleEditProduct = () => {
-    navigation.navigate('EditProduct', product);
+    if (product) {
+      navigation.navigate('EditProduct', product);
+    }
   };
 
   const handleDeleteProduct = () => {
+    if (!productId) return;
+
     Alert.alert(
       'Delete Product',
       'Are you sure you want to delete this product? This action cannot be undone.',
@@ -249,6 +246,24 @@ const ProductDetailsScreen = () => {
     },
   });
 
+  // FIXED: Early return for missing productId
+  if (!productId) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
+        <Text style={styles.errorText}>Invalid product ID</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => navigation.goBack()}>
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // Display loading state
   if (isLoading) {
     return (
@@ -265,7 +280,7 @@ const ProductDetailsScreen = () => {
     );
   }
 
-  // Display error state - FIXED: Properly handle error message
+  // FIXED: Better error handling
   if (error || !product) {
     return (
       <View style={[styles.container, styles.errorContainer]}>
@@ -287,6 +302,7 @@ const ProductDetailsScreen = () => {
     );
   }
 
+  // FIXED: Better null checking for images
   const productImages = product.images || [];
   const imageUrls = productImages.map(img => ({
     uri: getImageUrl(img.url),
@@ -321,10 +337,10 @@ const ProductDetailsScreen = () => {
             {/* Product Header */}
             <View style={styles.header}>
               <Text style={styles.title} testID="product-title">
-                {product.title}
+                {product.title || 'Untitled Product'}
               </Text>
               <Text style={styles.price} testID="product-price">
-                ${product.price.toFixed(2)}
+                ${(product.price || 0).toFixed(2)}
               </Text>
             </View>
 
@@ -370,7 +386,7 @@ const ProductDetailsScreen = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
               <Text style={styles.description} testID="product-description">
-                {product.description}
+                {product.description || 'No description available'}
               </Text>
             </View>
 

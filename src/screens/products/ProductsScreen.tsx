@@ -1,5 +1,5 @@
 // src/screens/products/ProductsScreen.tsx
-// Replace the existing ProductsScreen component with this updated version
+// Fixed pull-to-refresh implementation
 
 import React, {useContext, useState, useCallback, useMemo} from 'react';
 import {
@@ -21,7 +21,11 @@ import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Product, productsApi} from '../../api/products';
 import {useDebounce} from '../../hooks/useDebounce';
-import {useInfiniteQuery, useQuery} from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -29,14 +33,14 @@ const ProductsScreen = () => {
     useContext(ThemeContext);
   const insets = useSafeAreaInsets();
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
+  const queryClient = useQueryClient();
 
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 500);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
-
-  // Determine number of columns based on orientation
   const numColumns = isLandscape ? 4 : 2;
 
   // State to manage sorting options
@@ -54,11 +58,10 @@ const ProductsScreen = () => {
     data: searchData,
     isLoading: isSearchLoading,
     error: searchError,
+    refetch: refetchSearch,
   } = useQuery({
     queryKey: ['searchProducts', debouncedSearch, sortBy, sortOrder],
     queryFn: async () => {
-      // When searching, we need to get all products to search through them
-      // This is a limitation of the API not having a proper search endpoint
       const allProductsData = [];
       let page = 1;
       let hasMore = true;
@@ -66,7 +69,7 @@ const ProductsScreen = () => {
       while (hasMore) {
         const response = await productsApi.getProducts({
           page,
-          limit: 50, // Get more products per page when searching
+          limit: 50,
           sortBy,
           order: sortOrder,
         });
@@ -80,34 +83,18 @@ const ProductsScreen = () => {
         }
       }
 
-      // Now filter the products based on search term
       const searchTerm = debouncedSearch.toLowerCase().trim();
-
       const filtered = allProductsData.filter(product => {
-        // Search in title
-        if (product.title.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
+        if (product.title.toLowerCase().includes(searchTerm)) return true;
+        if (product.description.toLowerCase().includes(searchTerm)) return true;
 
-        // Search in description
-        if (product.description.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-
-        // Search by price (exact match or range)
         const priceStr = product.price.toString();
-        if (priceStr.includes(searchTerm)) {
-          return true;
-        }
+        if (priceStr.includes(searchTerm)) return true;
 
-        // If search term is a number, also match prices within a range
         const searchNumber = parseFloat(searchTerm);
         if (!isNaN(searchNumber)) {
           const priceDiff = Math.abs(product.price - searchNumber);
-          // Match if price is within 10% of search number
-          if (priceDiff <= searchNumber * 0.1) {
-            return true;
-          }
+          if (priceDiff <= searchNumber * 0.1) return true;
         }
 
         return false;
@@ -116,7 +103,7 @@ const ProductsScreen = () => {
       return filtered;
     },
     enabled: isSearching,
-    staleTime: 30000, // Cache search results for 30 seconds
+    staleTime: 30000,
   });
 
   // Infinite query for normal browsing (when not searching)
@@ -146,7 +133,7 @@ const ProductsScreen = () => {
       }
       return undefined;
     },
-    enabled: !isSearching, // Only fetch paginated data when not searching
+    enabled: !isSearching,
   });
 
   // Flatten the pages of products for display
@@ -170,14 +157,24 @@ const ProductsScreen = () => {
     navigation.navigate('AddProduct');
   };
 
-  const handleRefresh = useCallback(() => {
-    if (isSearching) {
-      // Refetch search results
-      // queryClient.invalidateQueries(['searchProducts']);
-    } else {
-      refetchProducts();
+  // FIXED: Improved refresh handling
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (isSearching) {
+        // When searching, refetch search results
+        await refetchSearch();
+      } else {
+        // When not searching, invalidate and refetch products
+        await queryClient.invalidateQueries({queryKey: ['products']});
+        await refetchProducts();
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
     }
-  }, [refetchProducts, isSearching]);
+  }, [isSearching, refetchSearch, refetchProducts, queryClient]);
 
   // Handle loading more products on scroll (only when not searching)
   const handleLoadMore = () => {
@@ -208,7 +205,6 @@ const ProductsScreen = () => {
   // Main screen content with header and search bar
   const renderMainContent = () => {
     if (isLandscape) {
-      // Landscape layout - compact header with inline search
       return (
         <View style={styles.headerLandscape}>
           <Text
@@ -256,7 +252,6 @@ const ProductsScreen = () => {
         </View>
       );
     } else {
-      // Portrait layout - standard stacked header
       return (
         <View style={styles.header}>
           <View style={styles.headerTop}>
@@ -496,10 +491,8 @@ const ProductsScreen = () => {
         backgroundColor={colors.background}
       />
 
-      {/* Responsive header with search bar */}
       {renderMainContent()}
 
-      {/* Sort Menu */}
       {showSortMenu && (
         <View style={styles.sortMenu}>
           <Text style={styles.sortHeader}>SORT BY PRICE</Text>
@@ -586,7 +579,6 @@ const ProductsScreen = () => {
         </View>
       )}
 
-      {/* Search results count */}
       {isSearching && !isSearchLoading && (
         <Text
           style={[
@@ -599,9 +591,7 @@ const ProductsScreen = () => {
         </Text>
       )}
 
-      {/* Different content states */}
       {isLoading && displayedProducts.length === 0 ? (
-        // Loading state
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.emptyText, {marginTop: 16}]}>
@@ -609,7 +599,6 @@ const ProductsScreen = () => {
           </Text>
         </View>
       ) : error ? (
-        // Error state
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Error loading products</Text>
           <TouchableOpacity
@@ -619,7 +608,6 @@ const ProductsScreen = () => {
           </TouchableOpacity>
         </View>
       ) : displayedProducts.length === 0 ? (
-        // Empty state
         <View style={styles.emptyContainer}>
           <Icon
             name={isSearching ? 'magnify-close' : 'package-variant'}
@@ -640,7 +628,6 @@ const ProductsScreen = () => {
           )}
         </View>
       ) : (
-        // Products list
         <FlatList
           data={displayedProducts}
           keyExtractor={item => item._id}
@@ -657,7 +644,7 @@ const ProductsScreen = () => {
           testID="products-list"
           refreshControl={
             <RefreshControl
-              refreshing={isLoading && !isFetchingNextPage}
+              refreshing={refreshing}
               onRefresh={handleRefresh}
               colors={[colors.primary]}
               tintColor={colors.primary}
@@ -669,7 +656,6 @@ const ProductsScreen = () => {
         />
       )}
 
-      {/* Always show Add button */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={handleAddProduct}

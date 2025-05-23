@@ -77,12 +77,53 @@ export const useSearchProducts = () => {
   };
 };
 
-// Hook for getting a product by ID
+// FIXED: Hook for getting a product by ID with better error handling
 export const useProductDetails = (productId: string) => {
   return useQuery({
     queryKey: ['product', productId],
-    queryFn: () => productsApi.getProductById(productId),
-    enabled: !!productId,
+    queryFn: async () => {
+      if (!productId) {
+        throw new Error('Product ID is required');
+      }
+
+      try {
+        const response = await productsApi.getProductById(productId);
+
+        // Check if the response has the expected structure
+        if (!response || typeof response !== 'object') {
+          throw new Error('Invalid response format');
+        }
+
+        // Handle different response structures
+        if (response.success === false) {
+          throw new Error(response.message || 'Failed to fetch product');
+        }
+
+        return response;
+      } catch (error: any) {
+        console.error('Product fetch error:', error);
+
+        // Re-throw with more specific error message
+        if (error.response?.status === 404) {
+          throw new Error('Product not found');
+        } else if (error.response?.status === 401) {
+          throw new Error('Authentication required');
+        } else if (error.response?.data?.message) {
+          throw new Error(error.response.data.message);
+        } else {
+          throw new Error(error.message || 'Failed to fetch product details');
+        }
+      }
+    },
+    enabled: !!productId && productId.length > 0,
+    retry: (failureCount, error) => {
+      // Don't retry for 404 errors
+      if (error?.message?.includes('not found')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
 
@@ -95,6 +136,9 @@ export const useCreateProduct = () => {
     onSuccess: () => {
       // Invalidate products queries to refetch after mutation
       queryClient.invalidateQueries({queryKey: ['products']});
+    },
+    onError: (error: any) => {
+      console.error('Create product error:', error);
     },
   });
 };
@@ -110,6 +154,9 @@ export const useUpdateProduct = () => {
       queryClient.invalidateQueries({queryKey: ['product', variables.id]});
       queryClient.invalidateQueries({queryKey: ['products']});
     },
+    onError: (error: any) => {
+      console.error('Update product error:', error);
+    },
   });
 };
 
@@ -121,6 +168,9 @@ export const useDeleteProduct = () => {
     onSuccess: () => {
       // Invalidate products queries
       queryClient.invalidateQueries({queryKey: ['products']});
+    },
+    onError: (error: any) => {
+      console.error('Delete product error:', error);
     },
   });
 };
