@@ -1,18 +1,18 @@
 // src/screens/products/ProductDetailsScreen.tsx
 
-import React, {useContext} from 'react';
+import React, {useContext, useState} from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Share,
   StatusBar,
   useWindowDimensions,
   ActivityIndicator,
   Alert,
+  Image,
+  Dimensions,
 } from 'react-native';
 import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -25,6 +25,8 @@ import {useAuthStore} from '../../store/authStore';
 import {useMutation} from '@tanstack/react-query';
 import {productsApi} from '../../api/products';
 import {queryClient} from '../../api/queryClient';
+
+const {width: screenWidth} = Dimensions.get('window');
 
 type ProductDetailsScreenNavigationProp = StackNavigationProp<
   ProductStackParamList,
@@ -41,7 +43,10 @@ const ProductDetailsScreen = () => {
 
   // Get product ID from route params
   const productId = route.params._id;
-  const {user} = useAuthStore(); // Get current user
+  const {user} = useAuthStore();
+
+  // State for image gallery
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Use React Query hook to fetch product details
   const {
@@ -82,34 +87,12 @@ const ProductDetailsScreen = () => {
 
   // Function to get the full image URL
   const getImageUrl = (relativeUrl: string) => {
-    // Check if the URL is already absolute (starts with http or https)
     if (relativeUrl.startsWith('http')) {
       return relativeUrl;
     }
-    // Otherwise, prepend the base URL
     return `https://backend-practice.eurisko.me${relativeUrl}`;
   };
 
-  const handleShare = async () => {
-    if (!product) return;
-
-    try {
-      await Share.share({
-        message: `Check out this amazing product: ${product.title} - ${product.description}`,
-        title: product.title,
-      });
-    } catch (error) {
-      console.error('Error sharing product:', error);
-    }
-  };
-
-  const handleAddToCart = () => {
-    // In a real app, we would add the product to cart
-    // For this assignment, no functionality is required
-    console.log('Product added to cart:', productId);
-  };
-
-  // Add these handler functions
   const handleEditProduct = () => {
     navigation.navigate('EditProduct', product);
   };
@@ -132,6 +115,65 @@ const ProductDetailsScreen = () => {
     );
   };
 
+  const handleImageScroll = (event: any) => {
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollPosition / screenWidth);
+    setCurrentImageIndex(index);
+  };
+
+  const handleImageLongPress = (imageUrl: string) => {
+    Alert.alert(
+      'Save Image',
+      'Do you want to save this image to your device?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Save',
+          onPress: () => {
+            // TODO: Implement image saving functionality
+            Alert.alert(
+              'Coming Soon',
+              'Image saving feature will be implemented soon!',
+            );
+          },
+        },
+      ],
+    );
+  };
+
+  const handleShare = async () => {
+    if (!product) return;
+
+    try {
+      const message = `Check out this amazing product: ${
+        product.title
+      } - $${product.price.toFixed(2)}`;
+
+      Alert.alert('Share Product', message, [{text: 'OK'}]);
+    } catch (error) {
+      console.error('Error sharing product:', error);
+    }
+  };
+
+  const handleContactSeller = () => {
+    Alert.alert(
+      'Contact Seller',
+      `Would you like to contact ${
+        product?.user?.email || 'the seller'
+      } about this product?`,
+      [
+        {text: 'Cancel'},
+        {
+          text: 'Send Email',
+          onPress: () => {
+            // TODO: Implement email functionality
+            Alert.alert('Email', `Contacting ${product?.user?.email}...`);
+          },
+        },
+      ],
+    );
+  };
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -143,79 +185,105 @@ const ProductDetailsScreen = () => {
     contentWrapper: {
       flexDirection: isLandscape ? 'row' : 'column',
     },
-    imageContainer: {
+    imageSection: {
       width: isLandscape ? '50%' : '100%',
       height: isLandscape
         ? windowHeight - insets.top - insets.bottom
         : windowHeight * 0.4,
-      backgroundColor: isDarkMode ? '#121212' : '#F0F0F0',
+      backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+    },
+    imageScrollView: {
+      flex: 1,
+    },
+    imageContainer: {
+      width: screenWidth,
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     image: {
       width: '100%',
       height: '100%',
       resizeMode: 'contain',
     },
+    imagePlaceholder: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+    },
+    imageCounter: {
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    counterText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    dotsContainer: {
+      position: 'absolute',
+      bottom: 20,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginHorizontal: 4,
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    },
+    activeDot: {
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
     contentContainer: {
       padding: 16,
       width: isLandscape ? '50%' : '100%',
+      flex: isLandscape ? 1 : undefined,
+    },
+    header: {
+      marginBottom: 16,
     },
     title: {
       ...typography.heading2,
       marginBottom: 8,
+      color: colors.text,
     },
     price: {
-      ...getFontStyle('semiBold', 22),
+      ...getFontStyle('bold', 24),
       color: colors.primary,
       marginBottom: 16,
     },
-    descriptionTitle: {
-      ...typography.subtitle,
-      fontSize: 20,
-      marginBottom: 8,
+    section: {
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      ...getFontStyle('semiBold', 18),
+      color: colors.text,
+      marginBottom: 12,
     },
     description: {
       ...typography.body,
-      fontSize: 17,
-      lineHeight: 20,
-      marginBottom: 20,
-    },
-    buttonsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 24,
-    },
-    shareButton: {
-      backgroundColor: isDarkMode ? '#2C2C2C' : '#F0F0F0',
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flex: 1,
-      marginRight: 8,
-      flexDirection: 'row',
-    },
-    shareButtonText: {
-      ...getFontStyle('semiBold', 18),
-      marginLeft: 8,
-    },
-    addToCartButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flex: 2,
-      marginLeft: 8,
-      flexDirection: 'row',
-    },
-    addToCartButtonText: {
-      ...getFontStyle('semiBold', 18),
-      color: '#FFFFFF',
-      marginLeft: 8,
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.text,
     },
     ownerActions: {
       flexDirection: 'row',
       marginBottom: 16,
+      gap: 12,
     },
     editButton: {
       backgroundColor: colors.primary,
@@ -224,46 +292,78 @@ const ProductDetailsScreen = () => {
       alignItems: 'center',
       justifyContent: 'center',
       flex: 1,
-      marginRight: 8,
       flexDirection: 'row',
     },
     editButtonText: {
-      ...getFontStyle('semiBold', 18),
+      ...getFontStyle('semiBold', 16),
       color: '#FFFFFF',
       marginLeft: 8,
     },
     deleteButton: {
-      backgroundColor: '#D32F2F',
+      backgroundColor: colors.error,
       padding: 12,
       borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
       flex: 1,
-      marginLeft: 8,
       flexDirection: 'row',
     },
     deleteButtonText: {
-      ...getFontStyle('semiBold', 18),
+      ...getFontStyle('semiBold', 16),
       color: '#FFFFFF',
       marginLeft: 8,
     },
     sellerContainer: {
-      marginTop: 16,
       marginBottom: 16,
       padding: 16,
       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
-      borderRadius: 8,
+      borderRadius: 12,
     },
     sellerTitle: {
-      ...typography.subtitle,
+      ...getFontStyle('semiBold', 16),
+      color: colors.text,
       marginBottom: 8,
     },
     sellerInfo: {
       flexDirection: 'row',
       alignItems: 'center',
+      marginBottom: 12,
     },
     sellerText: {
       ...typography.body,
+      marginLeft: 8,
+      color: colors.text,
+    },
+    actionButtons: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    shareButton: {
+      backgroundColor: isDarkMode ? '#333333' : '#E9ECEF',
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      flexDirection: 'row',
+    },
+    shareButtonText: {
+      ...getFontStyle('semiBold', 16),
+      marginLeft: 8,
+      color: colors.text,
+    },
+    contactButton: {
+      backgroundColor: colors.primary,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      flexDirection: 'row',
+    },
+    contactButtonText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#FFFFFF',
       marginLeft: 8,
     },
     errorContainer: {
@@ -292,6 +392,11 @@ const ProductDetailsScreen = () => {
       justifyContent: 'center',
       alignItems: 'center',
     },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 16,
+    },
   });
 
   // Display loading state
@@ -303,7 +408,7 @@ const ProductDetailsScreen = () => {
           backgroundColor={colors.background}
         />
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{...typography.body, marginTop: 16}}>
+        <Text style={{...typography.body, marginTop: 16, color: colors.text}}>
           Loading product details...
         </Text>
       </View>
@@ -330,6 +435,8 @@ const ProductDetailsScreen = () => {
     );
   }
 
+  const productImages = product.images || [];
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -341,44 +448,79 @@ const ProductDetailsScreen = () => {
         contentContainerStyle={styles.scrollContent}
         testID="product-details-scroll">
         <View style={styles.contentWrapper}>
-          <View style={styles.imageContainer}>
-            {product.images && product.images.length > 0 ? (
-              <Image
-                source={{uri: getImageUrl(product.images[0]?.url)}}
-                style={styles.image}
-                testID="product-image"
-              />
+          {/* Enhanced Image Gallery Section */}
+          <View style={styles.imageSection}>
+            {productImages.length > 0 ? (
+              <>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleImageScroll}
+                  scrollEventThrottle={16}
+                  style={styles.imageScrollView}>
+                  {productImages.map((image, index) => (
+                    <TouchableOpacity
+                      key={image._id}
+                      style={styles.imageContainer}
+                      onLongPress={() =>
+                        handleImageLongPress(getImageUrl(image.url))
+                      }
+                      activeOpacity={0.9}>
+                      <Image
+                        source={{uri: getImageUrl(image.url)}}
+                        style={styles.image}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {/* Image Counter */}
+                {productImages.length > 1 && (
+                  <View style={styles.imageCounter}>
+                    <Text style={styles.counterText}>
+                      {currentImageIndex + 1} / {productImages.length}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Dots Indicator */}
+                {productImages.length > 1 && (
+                  <View style={styles.dotsContainer}>
+                    {productImages.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.dot,
+                          index === currentImageIndex && styles.activeDot,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
             ) : (
-              <View style={[styles.image, {backgroundColor: colors.card}]} />
+              <View style={styles.imagePlaceholder}>
+                <Icon name="image-off" size={40} color={colors.text} />
+              </View>
             )}
           </View>
 
+          {/* Content Section */}
           <View style={styles.contentContainer}>
-            <Text style={styles.title} testID="product-title">
-              {product.title}
-            </Text>
-            <Text style={styles.price} testID="product-price">
-              ${product.price.toFixed(2)}
-            </Text>
-
-            <Text style={styles.descriptionTitle}>Description</Text>
-            <Text style={styles.description} testID="product-description">
-              {product.description}
-            </Text>
-
-            {/* Seller Information */}
-            <View style={styles.sellerContainer}>
-              <Text style={styles.sellerTitle}>Seller</Text>
-              <View style={styles.sellerInfo}>
-                <Icon name="account" size={24} color={colors.text} />
-                <Text style={styles.sellerText}>
-                  {product.user?.email || 'Unknown Seller'}
-                </Text>
-              </View>
+            {/* Product Header */}
+            <View style={styles.header}>
+              <Text style={styles.title} testID="product-title">
+                {product.title}
+              </Text>
+              <Text style={styles.price} testID="product-price">
+                ${product.price.toFixed(2)}
+              </Text>
             </View>
 
-            {isOwner ? (
-              // Owner actions - Edit and Delete
+            {/* Owner Actions (Edit/Delete) */}
+            {isOwner && (
               <View style={styles.ownerActions}>
                 <TouchableOpacity
                   style={styles.editButton}
@@ -394,7 +536,7 @@ const ProductDetailsScreen = () => {
                   disabled={deleteProductMutation.isPending}
                   testID="delete-button">
                   {deleteProductMutation.isPending ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <>
                       <Icon name="delete" size={20} color="#FFFFFF" />
@@ -403,26 +545,49 @@ const ProductDetailsScreen = () => {
                   )}
                 </TouchableOpacity>
               </View>
-            ) : (
-              // Regular user actions - Share and Add to Cart
-              <View style={styles.buttonsContainer}>
-                <TouchableOpacity
-                  style={styles.shareButton}
-                  onPress={handleShare}
-                  testID="share-button">
-                  <Icon name="share-variant" size={20} color={colors.text} />
-                  <Text style={styles.shareButtonText}>Share</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.addToCartButton}
-                  onPress={handleAddToCart}
-                  testID="add-to-cart-button">
-                  <Icon name="cart-plus" size={20} color="#FFFFFF" />
-                  <Text style={styles.addToCartButtonText}>Add to Cart</Text>
-                </TouchableOpacity>
-              </View>
             )}
+
+            {/* Description Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Description</Text>
+              <Text style={styles.description} testID="product-description">
+                {product.description}
+              </Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Enhanced Seller Information */}
+            <View style={styles.sellerContainer}>
+              <Text style={styles.sellerTitle}>Seller Information</Text>
+              <View style={styles.sellerInfo}>
+                <Icon name="account-circle" size={24} color={colors.primary} />
+                <Text style={styles.sellerText}>
+                  {product.user?.email || 'Unknown Seller'}
+                </Text>
+              </View>
+
+              {/* Action Buttons for non-owners */}
+              {!isOwner && (
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={styles.shareButton}
+                    onPress={handleShare}
+                    testID="share-button">
+                    <Icon name="share-variant" size={20} color={colors.text} />
+                    <Text style={styles.shareButtonText}>Share</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.contactButton}
+                    onPress={handleContactSeller}
+                    testID="contact-button">
+                    <Icon name="email" size={20} color="#FFFFFF" />
+                    <Text style={styles.contactButtonText}>Contact</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </ScrollView>

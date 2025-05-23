@@ -1,5 +1,3 @@
-// src/components/products/ProductImageGallery.tsx
-
 import React, {useContext, useState} from 'react';
 import {
   View,
@@ -9,9 +7,13 @@ import {
   ScrollView,
   Image,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import {ThemeContext} from '../../context/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import RNFS from 'react-native-fs';
+import {request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 const {width: screenWidth, height: screenHeight} = Dimensions.get('window');
 
@@ -39,18 +41,77 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
   // Handle image press
   const handleImagePress = (index: number) => {
-    setCurrentIndex(index);
     onImagePress?.(index);
-    console.log('Image pressed:', index);
+  };
+
+  // Request permission to save image
+  const requestSavePermission = async () => {
+    if (Platform.OS === 'ios') {
+      const result = await request(PERMISSIONS.IOS.PHOTO_LIBRARY_ADD_ONLY);
+      return result === RESULTS.GRANTED;
+    } else {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        {
+          title: 'Storage Permission',
+          message: 'App needs access to your storage to save images',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
   };
 
   // Handle long press to save image
-  const handleLongPress = (imageUrl: string) => {
-    Alert.alert(
-      'Save Image',
-      'Image saving feature will be implemented in a future update.',
-      [{text: 'OK'}],
-    );
+  const handleLongPress = async (imageUrl: string) => {
+    try {
+      const hasPermission = await requestSavePermission();
+      if (!hasPermission) {
+        Alert.alert(
+          'Permission Denied',
+          'Cannot save image without permission',
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Save Image',
+        'Do you want to save this image to your device?',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Save',
+            onPress: async () => {
+              try {
+                const timestamp = new Date().getTime();
+                const downloadDest = `${RNFS.PicturesDirectoryPath}/product_${timestamp}.jpg`;
+
+                const options = {
+                  fromUrl: imageUrl,
+                  toFile: downloadDest,
+                };
+
+                const result = await RNFS.downloadFile(options).promise;
+
+                if (result.statusCode === 200) {
+                  Alert.alert('Success', 'Image saved to your gallery!');
+                } else {
+                  Alert.alert('Error', 'Failed to save image');
+                }
+              } catch (error) {
+                console.error('Save image error:', error);
+                Alert.alert('Error', 'Failed to save image');
+              }
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      console.error('Permission error:', error);
+      Alert.alert('Error', 'Failed to request permission');
+    }
   };
 
   // Handle scroll to update current index
