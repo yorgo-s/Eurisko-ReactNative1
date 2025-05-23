@@ -1,4 +1,4 @@
-// src/screens/auth/SignUpScreen.tsx - Updated with Camera Integration
+// src/screens/auth/SignUpScreen.tsx - Updated with Enhanced Camera Integration
 
 import React, {useContext, useState, useEffect} from 'react';
 import {
@@ -26,6 +26,7 @@ import {AuthStackParamList} from '../../navigation/types';
 import {useAuthStore} from '../../store/authStore';
 import ProfileImagePicker from '../../components/profile/ProfileImagePicker';
 import {CameraImage} from '../../hooks/useCamera';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // Get screen dimensions for responsive design
 const {width} = Dimensions.get('window');
@@ -67,10 +68,12 @@ const SignUpScreen = () => {
 
   // State for profile image
   const [profileImage, setProfileImage] = useState<CameraImage | null>(null);
+  const [showImageSection, setShowImageSection] = useState(false);
 
   const {
     control,
     handleSubmit,
+    watch,
     formState: {errors},
   } = useForm<SignUpFormData>({
     resolver: zodResolver(signupSchema),
@@ -81,6 +84,10 @@ const SignUpScreen = () => {
       password: '',
     },
   });
+
+  // Watch form values to generate initials
+  const firstName = watch('firstName');
+  const lastName = watch('lastName');
 
   // Show error alert when auth error occurs
   useEffect(() => {
@@ -119,11 +126,21 @@ const SignUpScreen = () => {
 
   // Get user initials for profile image fallback
   const getInitials = () => {
-    const firstName = control._defaultValues.firstName || '';
-    const lastName = control._defaultValues.lastName || '';
-    const firstInitial = firstName.charAt(0).toUpperCase();
-    const lastInitial = lastName.charAt(0).toUpperCase();
+    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
     return firstInitial + lastInitial || '?';
+  };
+
+  const toggleImageSection = () => {
+    setShowImageSection(!showImageSection);
+    if (!showImageSection && profileImage) {
+      // If hiding section and there's an image, keep it
+      return;
+    }
+    if (showImageSection && !profileImage) {
+      // If showing section but no image, don't clear anything
+      return;
+    }
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -146,19 +163,45 @@ const SignUpScreen = () => {
       textAlign: 'center',
     },
     profileImageSection: {
-      alignItems: 'center',
       marginBottom: normalize(24),
+      borderRadius: normalize(12),
+      backgroundColor: isDarkMode ? colors.card + '40' : colors.primary + '05',
+      overflow: 'hidden',
+    },
+    profileImageHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: normalize(16),
+      borderBottomWidth: showImageSection ? 1 : 0,
+      borderBottomColor: colors.border,
+    },
+    profileImageHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
     },
     profileImageTitle: {
-      ...getFontStyle('medium', normalize(16)),
+      ...getFontStyle('semiBold', normalize(16)),
       color: colors.text,
-      marginBottom: normalize(12),
+      marginLeft: normalize(12),
     },
     profileImageSubtitle: {
+      ...getFontStyle('regular', normalize(12)),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      marginLeft: normalize(12),
+      marginTop: normalize(2),
+    },
+    profileImageContent: {
+      padding: normalize(16),
+      alignItems: 'center',
+    },
+    profileImageDescription: {
       ...getFontStyle('regular', normalize(14)),
       color: isDarkMode ? '#AAAAAA' : '#666666',
       textAlign: 'center',
       marginBottom: normalize(16),
+      lineHeight: normalize(20),
     },
     inputContainer: {
       marginBottom: normalize(16),
@@ -166,6 +209,13 @@ const SignUpScreen = () => {
     label: {
       ...typography.label,
       marginBottom: normalize(8),
+    },
+    requiredLabel: {
+      ...typography.label,
+      marginBottom: normalize(8),
+    },
+    requiredAsterisk: {
+      color: colors.error,
     },
     input: {
       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
@@ -233,6 +283,44 @@ const SignUpScreen = () => {
       color: colors.text,
       marginBottom: normalize(8),
     },
+    optionalBadge: {
+      backgroundColor: colors.primary + '20',
+      paddingHorizontal: normalize(8),
+      paddingVertical: normalize(2),
+      borderRadius: normalize(10),
+      marginLeft: normalize(8),
+    },
+    optionalText: {
+      ...getFontStyle('medium', normalize(10)),
+      color: colors.primary,
+    },
+    chevronIcon: {
+      transform: [{rotate: showImageSection ? '180deg' : '0deg'}],
+    },
+    imagePreview: {
+      marginTop: normalize(12),
+      padding: normalize(12),
+      backgroundColor: colors.primary + '10',
+      borderRadius: normalize(8),
+      alignItems: 'center',
+    },
+    imagePreviewText: {
+      ...getFontStyle('regular', normalize(14)),
+      color: colors.primary,
+      textAlign: 'center',
+    },
+    skipButton: {
+      marginTop: normalize(12),
+      paddingVertical: normalize(8),
+      paddingHorizontal: normalize(16),
+      borderRadius: normalize(6),
+      backgroundColor: isDarkMode ? '#333333' : '#F0F0F0',
+      alignSelf: 'center',
+    },
+    skipButtonText: {
+      ...getFontStyle('medium', normalize(14)),
+      color: colors.text,
+    },
   });
 
   return (
@@ -250,27 +338,11 @@ const SignUpScreen = () => {
           showsVerticalScrollIndicator={false}>
           <Text style={dynamicStyles.title}>Create Account</Text>
 
-          {/* Profile Image Section */}
-          <View style={dynamicStyles.profileImageSection}>
-            <Text style={dynamicStyles.sectionTitle}>Profile Photo</Text>
-            <Text style={dynamicStyles.profileImageSubtitle}>
-              Add a profile photo to personalize your account (optional)
-            </Text>
-
-            <ProfileImagePicker
-              currentImage={profileImage?.uri || null}
-              onImageChange={setProfileImage}
-              initials={getInitials()}
-              size={100}
-              showEditIcon={true}
-            />
-          </View>
-
-          <View style={dynamicStyles.divider} />
-
           {/* Form Fields */}
           <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>First Name</Text>
+            <Text style={dynamicStyles.requiredLabel}>
+              First Name <Text style={dynamicStyles.requiredAsterisk}>*</Text>
+            </Text>
             <Controller
               control={control}
               name="firstName"
@@ -296,7 +368,9 @@ const SignUpScreen = () => {
           </View>
 
           <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>Last Name</Text>
+            <Text style={dynamicStyles.requiredLabel}>
+              Last Name <Text style={dynamicStyles.requiredAsterisk}>*</Text>
+            </Text>
             <Controller
               control={control}
               name="lastName"
@@ -322,7 +396,9 @@ const SignUpScreen = () => {
           </View>
 
           <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>Email</Text>
+            <Text style={dynamicStyles.requiredLabel}>
+              Email <Text style={dynamicStyles.requiredAsterisk}>*</Text>
+            </Text>
             <Controller
               control={control}
               name="email"
@@ -350,7 +426,9 @@ const SignUpScreen = () => {
           </View>
 
           <View style={dynamicStyles.inputContainer}>
-            <Text style={dynamicStyles.label}>Password</Text>
+            <Text style={dynamicStyles.requiredLabel}>
+              Password <Text style={dynamicStyles.requiredAsterisk}>*</Text>
+            </Text>
             <Controller
               control={control}
               name="password"
@@ -384,6 +462,84 @@ const SignUpScreen = () => {
                 <Text style={dynamicStyles.requirementText}>
                   • At least one number
                 </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={dynamicStyles.divider} />
+
+          {/* Profile Image Section */}
+          <View style={dynamicStyles.profileImageSection}>
+            <TouchableOpacity
+              style={dynamicStyles.profileImageHeader}
+              onPress={toggleImageSection}
+              activeOpacity={0.7}>
+              <View style={dynamicStyles.profileImageHeaderLeft}>
+                <Icon name="camera-plus" size={24} color={colors.primary} />
+                <View style={{flex: 1}}>
+                  <Text style={dynamicStyles.profileImageTitle}>
+                    Profile Photo
+                  </Text>
+                  <Text style={dynamicStyles.profileImageSubtitle}>
+                    {profileImage
+                      ? 'Photo selected'
+                      : 'Add a photo to personalize your account'}
+                  </Text>
+                </View>
+              </View>
+              <View style={dynamicStyles.optionalBadge}>
+                <Text style={dynamicStyles.optionalText}>OPTIONAL</Text>
+              </View>
+              <Icon
+                name="chevron-down"
+                size={20}
+                color={colors.text}
+                style={[dynamicStyles.chevronIcon, {marginLeft: 8}]}
+              />
+            </TouchableOpacity>
+
+            {showImageSection && (
+              <View style={dynamicStyles.profileImageContent}>
+                <Text style={dynamicStyles.profileImageDescription}>
+                  Adding a profile photo helps others recognize you and makes
+                  your account more personal. You can always add or change it
+                  later.
+                </Text>
+
+                <ProfileImagePicker
+                  currentImage={profileImage?.uri || null}
+                  onImageChange={setProfileImage}
+                  initials={getInitials()}
+                  size={100}
+                  showEditIcon={true}
+                />
+
+                {profileImage && (
+                  <View style={dynamicStyles.imagePreview}>
+                    <Icon
+                      name="check-circle"
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text style={dynamicStyles.imagePreviewText}>
+                      Profile photo ready to upload
+                      {profileImage.fileSize &&
+                        `\nSize: ${(
+                          profileImage.fileSize /
+                          1024 /
+                          1024
+                        ).toFixed(1)}MB`}
+                    </Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={dynamicStyles.skipButton}
+                  onPress={() => setShowImageSection(false)}>
+                  <Text style={dynamicStyles.skipButtonText}>
+                    {profileImage ? 'Done' : 'Skip for now'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
