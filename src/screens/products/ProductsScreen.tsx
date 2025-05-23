@@ -21,7 +21,7 @@ import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Product, productsApi} from '../../api/products';
 import {useDebounce} from '../../hooks/useDebounce';
-import {useInfiniteQuery} from '@tanstack/react-query';
+import {useInfiniteQuery, useQuery} from '@tanstack/react-query';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -40,11 +40,86 @@ const ProductsScreen = () => {
   const numColumns = isLandscape ? 4 : 2;
 
   // State to manage sorting options
-  const [sortBy, setSortBy] = useState<'price' | 'createdAt' | undefined>();
+  const [sortBy, setSortBy] = useState<'price' | 'createdAt' | undefined>(
+    'createdAt',
+  );
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showSortMenu, setShowSortMenu] = useState(false);
 
-  // Infinite query for products
+  // Check if we're searching
+  const isSearching = debouncedSearch.trim().length > 0;
+
+  // Query for search - fetches ALL products when searching
+  const {
+    data: searchData,
+    isLoading: isSearchLoading,
+    error: searchError,
+  } = useQuery({
+    queryKey: ['searchProducts', debouncedSearch, sortBy, sortOrder],
+    queryFn: async () => {
+      // When searching, we need to get all products to search through them
+      // This is a limitation of the API not having a proper search endpoint
+      const allProductsData = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await productsApi.getProducts({
+          page,
+          limit: 50, // Get more products per page when searching
+          sortBy,
+          order: sortOrder,
+        });
+
+        if (response.data && response.data.length > 0) {
+          allProductsData.push(...response.data);
+          hasMore = response.pagination?.hasNextPage || false;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Now filter the products based on search term
+      const searchTerm = debouncedSearch.toLowerCase().trim();
+
+      const filtered = allProductsData.filter(product => {
+        // Search in title
+        if (product.title.toLowerCase().includes(searchTerm)) {
+          return true;
+        }
+
+        // Search in description
+        if (product.description.toLowerCase().includes(searchTerm)) {
+          return true;
+        }
+
+        // Search by price (exact match or range)
+        const priceStr = product.price.toString();
+        if (priceStr.includes(searchTerm)) {
+          return true;
+        }
+
+        // If search term is a number, also match prices within a range
+        const searchNumber = parseFloat(searchTerm);
+        if (!isNaN(searchNumber)) {
+          const priceDiff = Math.abs(product.price - searchNumber);
+          // Match if price is within 10% of search number
+          if (priceDiff <= searchNumber * 0.1) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+
+      return filtered;
+    },
+    enabled: isSearching,
+    staleTime: 30000, // Cache search results for 30 seconds
+  });
+
+  // Infinite query for normal browsing (when not searching)
   const {
     data: productsData,
     fetchNextPage,
@@ -71,6 +146,7 @@ const ProductsScreen = () => {
       }
       return undefined;
     },
+    enabled: !isSearching, // Only fetch paginated data when not searching
   });
 
   // Flatten the pages of products for display
@@ -79,44 +155,8 @@ const ProductsScreen = () => {
     return productsData.pages.flatMap(page => page.data || []);
   }, [productsData]);
 
-  // Filter products based on search input
-  const filteredProducts = useMemo(() => {
-    if (!debouncedSearch.trim()) {
-      return allProducts;
-    }
-
-    const searchTerm = debouncedSearch.toLowerCase().trim();
-
-    return allProducts.filter(product => {
-      // Search in title
-      if (product.title.toLowerCase().includes(searchTerm)) {
-        return true;
-      }
-
-      // Search in description
-      if (product.description.toLowerCase().includes(searchTerm)) {
-        return true;
-      }
-
-      // Search by price (exact match or range)
-      const priceStr = product.price.toString();
-      if (priceStr.includes(searchTerm)) {
-        return true;
-      }
-
-      // If search term is a number, also match prices within a range
-      const searchNumber = parseFloat(searchTerm);
-      if (!isNaN(searchNumber)) {
-        const priceDiff = Math.abs(product.price - searchNumber);
-        // Match if price is within 10% of search number
-        if (priceDiff <= searchNumber * 0.1) {
-          return true;
-        }
-      }
-
-      return false;
-    });
-  }, [allProducts, debouncedSearch]);
+  // Determine which products to display
+  const displayedProducts = isSearching ? searchData || [] : allProducts;
 
   const handleProductPress = (product: Product) => {
     navigation.navigate('ProductDetails', product);
@@ -131,39 +171,31 @@ const ProductsScreen = () => {
   };
 
   const handleRefresh = useCallback(() => {
-    refetchProducts();
-  }, [refetchProducts]);
+    if (isSearching) {
+      // Refetch search results
+      // queryClient.invalidateQueries(['searchProducts']);
+    } else {
+      refetchProducts();
+    }
+  }, [refetchProducts, isSearching]);
 
-  // Handle loading more products on scroll
+  // Handle loading more products on scroll (only when not searching)
   const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage && !debouncedSearch) {
+    if (hasNextPage && !isFetchingNextPage && !isSearching) {
       fetchNextPage();
     }
   };
 
   // Handle sorting
-  const handleSort = (type: 'price' | 'date') => {
-    if (type === 'price') {
-      if (sortBy === 'price') {
-        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-      } else {
-        setSortBy('price');
-        setSortOrder('asc');
-      }
-    } else {
-      if (sortBy === 'createdAt') {
-        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-      } else {
-        setSortBy('createdAt');
-        setSortOrder('desc');
-      }
-    }
+  const handleSort = (type: 'price' | 'createdAt', order: 'asc' | 'desc') => {
+    setSortBy(type);
+    setSortOrder(order);
     setShowSortMenu(false);
   };
 
   // Footer component to show loading indicator when fetching more products
   const renderFooter = () => {
-    if (!isFetchingNextPage) return null;
+    if (!isFetchingNextPage || isSearching) return null;
 
     return (
       <View style={styles.footerLoader}>
@@ -417,7 +449,9 @@ const ProductsScreen = () => {
       shadowRadius: 3.84,
       elevation: 5,
       zIndex: 1000,
-      minWidth: 180,
+      minWidth: 200,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     sortOption: {
       flexDirection: 'row',
@@ -433,14 +467,27 @@ const ProductsScreen = () => {
     sortOptionText: {
       ...getFontStyle('regular', 16),
       color: colors.text,
+      flex: 1,
     },
     sortOptionIcon: {
       marginLeft: 8,
     },
+    sortSeparator: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 4,
+    },
+    sortHeader: {
+      ...getFontStyle('semiBold', 14),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
   });
 
-  // Search results count
-  const searchResultsCount = debouncedSearch ? filteredProducts.length : 0;
+  // Determine loading state
+  const isLoading = isSearching ? isSearchLoading : isLoadingProducts;
+  const error = isSearching ? searchError : productsError;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -455,85 +502,136 @@ const ProductsScreen = () => {
       {/* Sort Menu */}
       {showSortMenu && (
         <View style={styles.sortMenu}>
+          <Text style={styles.sortHeader}>SORT BY PRICE</Text>
           <TouchableOpacity
             style={[
               styles.sortOption,
-              sortBy === 'price' && styles.sortOptionActive,
+              sortBy === 'price' &&
+                sortOrder === 'asc' &&
+                styles.sortOptionActive,
             ]}
-            onPress={() => handleSort('price')}>
-            <Text style={styles.sortOptionText}>Sort by Price</Text>
-            {sortBy === 'price' && (
-              <Icon
-                name={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
-                size={16}
-                color={colors.primary}
-                style={styles.sortOptionIcon}
-              />
-            )}
+            onPress={() => handleSort('price', 'asc')}>
+            <Text style={styles.sortOptionText}>Price: Low to High</Text>
+            <Icon
+              name="arrow-up"
+              size={16}
+              color={
+                sortBy === 'price' && sortOrder === 'asc'
+                  ? colors.primary
+                  : colors.text
+              }
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.sortOption,
-              sortBy === 'createdAt' && styles.sortOptionActive,
+              sortBy === 'price' &&
+                sortOrder === 'desc' &&
+                styles.sortOptionActive,
             ]}
-            onPress={() => handleSort('date')}>
-            <Text style={styles.sortOptionText}>Sort by Date</Text>
-            {sortBy === 'createdAt' && (
-              <Icon
-                name={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
-                size={16}
-                color={colors.primary}
-                style={styles.sortOptionIcon}
-              />
-            )}
+            onPress={() => handleSort('price', 'desc')}>
+            <Text style={styles.sortOptionText}>Price: High to Low</Text>
+            <Icon
+              name="arrow-down"
+              size={16}
+              color={
+                sortBy === 'price' && sortOrder === 'desc'
+                  ? colors.primary
+                  : colors.text
+              }
+            />
+          </TouchableOpacity>
+
+          <View style={styles.sortSeparator} />
+
+          <Text style={styles.sortHeader}>SORT BY DATE</Text>
+          <TouchableOpacity
+            style={[
+              styles.sortOption,
+              sortBy === 'createdAt' &&
+                sortOrder === 'desc' &&
+                styles.sortOptionActive,
+            ]}
+            onPress={() => handleSort('createdAt', 'desc')}>
+            <Text style={styles.sortOptionText}>Date: Newest First</Text>
+            <Icon
+              name="arrow-down"
+              size={16}
+              color={
+                sortBy === 'createdAt' && sortOrder === 'desc'
+                  ? colors.primary
+                  : colors.text
+              }
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.sortOption,
+              sortBy === 'createdAt' &&
+                sortOrder === 'asc' &&
+                styles.sortOptionActive,
+            ]}
+            onPress={() => handleSort('createdAt', 'asc')}>
+            <Text style={styles.sortOptionText}>Date: Oldest First</Text>
+            <Icon
+              name="arrow-up"
+              size={16}
+              color={
+                sortBy === 'createdAt' && sortOrder === 'asc'
+                  ? colors.primary
+                  : colors.text
+              }
+            />
           </TouchableOpacity>
         </View>
       )}
 
       {/* Search results count */}
-      {debouncedSearch && (
+      {isSearching && !isSearchLoading && (
         <Text
           style={[
             styles.searchResultText,
             isLandscape && {marginTop: 4, marginBottom: 4},
           ]}>
-          {searchResultsCount > 0
-            ? `Found ${searchResultsCount} results for "${debouncedSearch}"`
+          {displayedProducts.length > 0
+            ? `Found ${displayedProducts.length} results for "${debouncedSearch}"`
             : `No products found matching "${debouncedSearch}"`}
         </Text>
       )}
 
       {/* Different content states */}
-      {isLoadingProducts && !allProducts.length ? (
+      {isLoading && displayedProducts.length === 0 ? (
         // Loading state
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.emptyText}>Loading products...</Text>
+          <Text style={[styles.emptyText, {marginTop: 16}]}>
+            {isSearching ? 'Searching all products...' : 'Loading products...'}
+          </Text>
         </View>
-      ) : productsError ? (
+      ) : error ? (
         // Error state
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Error loading products</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => refetchProducts()}>
+            onPress={() => handleRefresh()}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : filteredProducts.length === 0 ? (
+      ) : displayedProducts.length === 0 ? (
         // Empty state
         <View style={styles.emptyContainer}>
           <Icon
-            name={debouncedSearch ? 'magnify-close' : 'package-variant'}
+            name={isSearching ? 'magnify-close' : 'package-variant'}
             size={48}
             color={isDarkMode ? '#666666' : '#CCCCCC'}
           />
           <Text style={[styles.emptyText, {marginTop: 16}]}>
-            {debouncedSearch
+            {isSearching
               ? `No products found matching "${debouncedSearch}"`
               : 'No products available'}
           </Text>
-          {debouncedSearch && (
+          {isSearching && (
             <TouchableOpacity
               style={[styles.retryButton, {marginTop: 16}]}
               onPress={handleClearSearch}>
@@ -544,7 +642,7 @@ const ProductsScreen = () => {
       ) : (
         // Products list
         <FlatList
-          data={filteredProducts}
+          data={displayedProducts}
           keyExtractor={item => item._id}
           renderItem={({item}) => (
             <ProductCard
@@ -559,7 +657,7 @@ const ProductsScreen = () => {
           testID="products-list"
           refreshControl={
             <RefreshControl
-              refreshing={isLoadingProducts && !isFetchingNextPage}
+              refreshing={isLoading && !isFetchingNextPage}
               onRefresh={handleRefresh}
               colors={[colors.primary]}
               tintColor={colors.primary}
