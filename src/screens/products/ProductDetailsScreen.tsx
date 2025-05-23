@@ -1,3 +1,5 @@
+// src/screens/products/ProductDetailsScreen.tsx
+
 import React, {useContext, useState} from 'react';
 import {
   View,
@@ -13,8 +15,12 @@ import {
   Dimensions,
   Linking,
   Platform,
+  PermissionsAndroid,
+  Modal,
 } from 'react-native';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import RNFS from 'react-native-fs';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {ThemeContext} from '../../context/ThemeContext';
@@ -48,6 +54,9 @@ const ProductDetailsScreen = () => {
 
   // State for image gallery
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Use React Query hook to fetch product details
   const {
@@ -122,24 +131,141 @@ const ProductDetailsScreen = () => {
     setCurrentImageIndex(index);
   };
 
-  const handleImageLongPress = (imageUrl: string) => {
-    Alert.alert(
-      'Save Image',
-      'Do you want to save this image to your device?',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Save',
-          onPress: () => {
-            // TODO: Implement image saving functionality
-            Alert.alert(
-              'Coming Soon',
-              'Image saving feature will be implemented soon!',
-            );
-          },
+  const handleImageLongPress = async (imageUrl: string) => {
+    setSelectedImageUrl(imageUrl);
+    setShowSaveModal(true);
+  };
+
+  const requestStoragePermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        // For Android 13+ (API 33+), we need different permissions
+        if (Platform.Version >= 33) {
+          const permission = await check(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
+          if (permission === RESULTS.GRANTED) {
+            return true;
+          }
+
+          const result = await request(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
+          return result === RESULTS.GRANTED;
+        } else {
+          // For older Android versions
+          const permission = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          );
+
+          if (permission) {
+            return true;
+          }
+
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            {
+              title: 'Storage Permission',
+              message: 'This app needs access to storage to save images.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            },
+          );
+
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
+        }
+      } catch (err) {
+        console.warn('Permission error:', err);
+        return false;
+      }
+    }
+
+    // iOS doesn't need permission for saving to photo library with RNFS
+    return true;
+  };
+
+  const saveImageToGallery = async () => {
+    try {
+      setIsSaving(true);
+
+      // Check and request permissions
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert(
+          'Permission Required',
+          'Storage permission is required to save images. Please enable it in your device settings.',
+        );
+        setIsSaving(false);
+        setShowSaveModal(false);
+        return;
+      }
+
+      // Generate a unique filename
+      const timestamp = new Date().getTime();
+      const filename = `product_image_${timestamp}.jpg`;
+
+      // For Android, save to Downloads folder which is more reliable
+      const downloadPath =
+        Platform.OS === 'android'
+          ? `${RNFS.DownloadDirectoryPath}/${filename}`
+          : `${RNFS.DocumentDirectoryPath}/${filename}`;
+
+      console.log('Saving image to:', downloadPath);
+      console.log('Image URL:', selectedImageUrl);
+
+      // Download the image
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: selectedImageUrl,
+        toFile: downloadPath,
+        progressDivider: 1,
+        begin: res => {
+          console.log('Download started:', res);
         },
-      ],
-    );
+        progress: res => {
+          console.log('Download progress:', res);
+        },
+      }).promise;
+
+      console.log('Download result:', downloadResult);
+
+      if (downloadResult.statusCode === 200) {
+        // Verify the file was created
+        const fileExists = await RNFS.exists(downloadPath);
+        console.log('File exists after download:', fileExists);
+
+        if (fileExists) {
+          const fileStats = await RNFS.stat(downloadPath);
+          console.log('File stats:', fileStats);
+
+          setIsSaving(false);
+          setShowSaveModal(false);
+
+          // Show success message
+          setTimeout(() => {
+            Alert.alert(
+              'Success!',
+              `Image saved to ${
+                Platform.OS === 'android' ? 'Downloads' : 'device'
+              } folder.`,
+            );
+          }, 500);
+        } else {
+          throw new Error('File was not created');
+        }
+      } else {
+        throw new Error(
+          `Download failed with status: ${downloadResult.statusCode}`,
+        );
+      }
+    } catch (error) {
+      console.error('Error saving image:', error);
+      setIsSaving(false);
+      setShowSaveModal(false);
+
+      setTimeout(() => {
+        Alert.alert(
+          'Error',
+          `Failed to save image: ${error.message}. Please try again.`,
+        );
+      }, 500);
+    }
   };
 
   const handleShare = async () => {
@@ -476,6 +602,70 @@ const ProductDetailsScreen = () => {
       color: isDarkMode ? '#AAAAAA' : '#666666',
       marginTop: 8,
     },
+    // Save Image Modal Styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      padding: 24,
+      margin: 20,
+      minWidth: 280,
+      maxWidth: 320,
+    },
+    modalTitle: {
+      ...getFontStyle('bold', 18),
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    modalMessage: {
+      ...getFontStyle('regular', 16),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      textAlign: 'center',
+      marginBottom: 24,
+      lineHeight: 22,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    modalButton: {
+      flex: 1,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: isDarkMode ? '#333333' : '#E5E5E5',
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+    },
+    modalButtonText: {
+      ...getFontStyle('semiBold', 16),
+    },
+    cancelButtonText: {
+      color: colors.text,
+    },
+    saveButtonText: {
+      color: '#FFFFFF',
+    },
+    savingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    savingText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#FFFFFF',
+      marginLeft: 8,
+    },
     errorContainer: {
       flex: 1,
       justifyContent: 'center',
@@ -775,6 +965,50 @@ const ProductDetailsScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Save Image Modal */}
+      <Modal
+        visible={showSaveModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSaveModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Save Image</Text>
+            <Text style={styles.modalMessage}>
+              Do you want to save this image to your device? It will be saved to
+              your Downloads folder.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowSaveModal(false)}
+                disabled={isSaving}>
+                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={saveImageToGallery}
+                disabled={isSaving}>
+                {isSaving ? (
+                  <View style={styles.savingContainer}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.savingText}>Saving...</Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.modalButtonText, styles.saveButtonText]}>
+                    Save
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
