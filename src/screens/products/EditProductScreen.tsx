@@ -7,9 +7,9 @@
 //   TextInput,
 //   TouchableOpacity,
 //   Image,
-//   Platform,
 //   ActivityIndicator,
 //   Alert,
+//   Modal,
 // } from 'react-native';
 // import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 // import {ThemeContext} from '../../context/ThemeContext';
@@ -18,14 +18,17 @@
 // import {useForm, Controller} from 'react-hook-form';
 // import {z} from 'zod';
 // import {zodResolver} from '@hookform/resolvers/zod';
-// import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
-// import {useMutation, useQuery} from '@tanstack/react-query';
-// import {productsApi, Product} from '../../api/products';
-// import {queryClient} from '../../api/queryClient';
-// import SimpleLocationPicker from '../../components/products/SimpleLocationPicker';
+// import {
+//   launchImageLibrary,
+//   launchCamera,
+//   ImagePickerResponse,
+//   MediaType,
+// } from 'react-native-image-picker';
+// import {useUpdateProduct, useProductDetails} from '../../hooks/useProducts';
+// import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 // import {ProductStackParamList} from '../../navigation/types';
 
-// // Define validation schema with Zod (same as AddProductScreen)
+// // Validation schema
 // const productSchema = z.object({
 //   title: z.string().min(3, 'Title must be at least 3 characters'),
 //   description: z.string().min(10, 'Description must be at least 10 characters'),
@@ -50,29 +53,30 @@
 //   const route = useRoute<RouteProp<ProductStackParamList, 'EditProduct'>>();
 //   const productId = route.params._id;
 
-//   const {colors, isDarkMode, typography, getFontStyle} =
-//     useContext(ThemeContext);
+//   const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
 //   const insets = useSafeAreaInsets();
 
-//   // State for selected images
 //   const [images, setImages] = useState<
 //     Array<{uri: string; type: string; name: string}>
 //   >([]);
 //   const [showLocationPicker, setShowLocationPicker] = useState(false);
-//   const [initialLoading, setInitialLoading] = useState(true);
-
-//   // Fetch product data
-//   const {data: productData, isLoading: isLoadingProduct} = useQuery({
-//     queryKey: ['product', productId],
-//     queryFn: () => productsApi.getProductById(productId),
-//     enabled: !!productId,
+//   const [mapRegion, setMapRegion] = useState({
+//     latitude: 33.8547,
+//     longitude: 35.8623,
+//     latitudeDelta: 0.0922,
+//     longitudeDelta: 0.0421,
 //   });
 
-//   // Using React Hook Form with zod validation
+//   // Fetch product data
+//   const {data: productData, isLoading: isLoadingProduct} =
+//     useProductDetails(productId);
+//   const updateProductMutation = useUpdateProduct();
+
 //   const {
 //     control,
 //     handleSubmit,
 //     setValue,
+//     watch,
 //     reset,
 //     formState: {errors},
 //   } = useForm<ProductFormData>({
@@ -82,12 +86,14 @@
 //       description: '',
 //       price: '',
 //       location: {
-//         name: 'Dummy Place',
-//         latitude: 33.56789,
-//         longitude: 35.12345,
+//         name: '',
+//         latitude: 33.8547,
+//         longitude: 35.8623,
 //       },
 //     },
 //   });
+
+//   const selectedLocation = watch('location');
 
 //   // Initialize form with product data
 //   useEffect(() => {
@@ -99,9 +105,9 @@
 //         description: product.description,
 //         price: product.price.toString(),
 //         location: product.location || {
-//           name: 'Dummy Place',
-//           latitude: 33.56789,
-//           longitude: 35.12345,
+//           name: 'Lebanon',
+//           latitude: 33.8547,
+//           longitude: 35.8623,
 //         },
 //       });
 
@@ -122,44 +128,23 @@
 //         setImages(productImages);
 //       }
 
-//       setInitialLoading(false);
+//       // Update map region if location exists
+//       if (product.location) {
+//         setMapRegion({
+//           ...mapRegion,
+//           latitude: product.location.latitude,
+//           longitude: product.location.longitude,
+//         });
+//       }
 //     }
 //   }, [productData]);
 
-//   // Mutation for updating a product
-//   const {mutate, isPending} = useMutation({
-//     mutationFn: (data: {
-//       id: string;
-//       data: {
-//         title: string;
-//         description: string;
-//         price: number;
-//         location: string;
-//         images: Array<{uri: string; type: string; name: string}>;
-//       };
-//     }) => productsApi.updateProduct(data.id, data.data),
-//     onSuccess: () => {
-//       queryClient.invalidateQueries({queryKey: ['products']});
-//       queryClient.invalidateQueries({queryKey: ['product', productId]});
-//       Alert.alert('Success', 'Product updated successfully!');
-//       navigation.goBack();
-//     },
-//     onError: (error: any) => {
-//       Alert.alert(
-//         'Error',
-//         error.response?.data?.message || 'Failed to update product',
-//       );
-//     },
-//   });
-
-//   // Handle form submission
 //   const onSubmit = (data: ProductFormData) => {
 //     if (images.length === 0) {
 //       Alert.alert('Error', 'Please add at least one image');
 //       return;
 //     }
 
-//     // Format the data for API submission
 //     const productData = {
 //       title: data.title,
 //       description: data.description,
@@ -168,33 +153,50 @@
 //       images: images,
 //     };
 
-//     // Submit the product update
-//     mutate({
-//       id: productId,
-//       data: productData,
-//     });
+//     updateProductMutation.mutate(
+//       {id: productId, data: productData},
+//       {
+//         onSuccess: () => {
+//           Alert.alert('Success', 'Product updated successfully!', [
+//             {text: 'OK', onPress: () => navigation.goBack()},
+//           ]);
+//         },
+//         onError: (error: any) => {
+//           Alert.alert(
+//             'Error',
+//             error.response?.data?.message || 'Failed to update product',
+//           );
+//         },
+//       },
+//     );
 //   };
 
-//   // Handle image selection
-//   const handleSelectImage = async (useCamera = false) => {
+//   const handleSelectImage = () => {
+//     Alert.alert(
+//       'Select Image',
+//       'Choose from where you want to select an image',
+//       [
+//         {text: 'Camera', onPress: () => selectImage(true)},
+//         {text: 'Gallery', onPress: () => selectImage(false)},
+//         {text: 'Cancel', style: 'cancel'},
+//       ],
+//     );
+//   };
+
+//   const selectImage = async (useCamera: boolean) => {
 //     const options = {
-//       mediaType: 'photo',
+//       mediaType: 'photo' as MediaType,
 //       quality: 0.8,
 //       maxWidth: 1200,
 //       maxHeight: 1200,
 //     };
 
 //     try {
-//       const result = useCamera
+//       const result: ImagePickerResponse = useCamera
 //         ? await launchCamera(options)
 //         : await launchImageLibrary(options);
 
-//       if (result.didCancel) {
-//         return;
-//       }
-
-//       if (result.errorCode) {
-//         Alert.alert('Error', result.errorMessage || 'Failed to select image');
+//       if (result.didCancel || result.errorCode) {
 //         return;
 //       }
 
@@ -205,7 +207,6 @@
 //           name: asset.fileName || `image-${Date.now()}.jpg`,
 //         }));
 
-//         // Don't exceed 5 images
 //         if (images.length + newImages.length > 5) {
 //           Alert.alert('Error', 'You can only add up to 5 images');
 //           return;
@@ -219,59 +220,29 @@
 //     }
 //   };
 
-//   // Handle removing an image
 //   const handleRemoveImage = (index: number) => {
 //     const newImages = [...images];
 //     newImages.splice(index, 1);
 //     setImages(newImages);
 //   };
 
-//   // Handle selecting location
-//   const handleSelectLocation = () => {
-//     setShowLocationPicker(true);
+//   const handleMapPress = (event: any) => {
+//     const {coordinate} = event.nativeEvent;
+//     setValue('location.latitude', coordinate.latitude);
+//     setValue('location.longitude', coordinate.longitude);
+//     setMapRegion({
+//       ...mapRegion,
+//       latitude: coordinate.latitude,
+//       longitude: coordinate.longitude,
+//     });
 //   };
 
-//   // Handle location selection
-//   const handleLocationSelected = (selectedLocation: {
-//     name: string;
-//     latitude: number;
-//     longitude: number;
-//   }) => {
-//     setValue('location', selectedLocation, {shouldValidate: true});
+//   const handleLocationConfirm = () => {
+//     if (!selectedLocation.name) {
+//       Alert.alert('Error', 'Please enter a location name');
+//       return;
+//     }
 //     setShowLocationPicker(false);
-//   };
-
-//   // Handle delete product
-//   const handleDeleteProduct = () => {
-//     Alert.alert(
-//       'Delete Product',
-//       'Are you sure you want to delete this product? This action cannot be undone.',
-//       [
-//         {
-//           text: 'Cancel',
-//           style: 'cancel',
-//         },
-//         {
-//           text: 'Delete',
-//           style: 'destructive',
-//           onPress: () => {
-//             productsApi
-//               .deleteProduct(productId)
-//               .then(() => {
-//                 queryClient.invalidateQueries({queryKey: ['products']});
-//                 Alert.alert('Success', 'Product deleted successfully!');
-//                 navigation.goBack();
-//               })
-//               .catch(error => {
-//                 Alert.alert(
-//                   'Error',
-//                   error.response?.data?.message || 'Failed to delete product',
-//                 );
-//               });
-//           },
-//         },
-//       ],
-//     );
 //   };
 
 //   const styles = StyleSheet.create({
@@ -282,30 +253,21 @@
 //     header: {
 //       flexDirection: 'row',
 //       alignItems: 'center',
-//       justifyContent: 'space-between',
 //       padding: 16,
 //       paddingTop: Math.max(16, insets.top),
 //       borderBottomWidth: 1,
 //       borderBottomColor: colors.border,
 //     },
 //     headerTitle: {
-//       ...getFontStyle('bold', 22),
+//       ...getFontStyle('bold', 20),
 //       color: colors.text,
 //       marginLeft: 16,
-//     },
-//     deleteButton: {
-//       marginLeft: 'auto',
 //     },
 //     content: {
 //       padding: 16,
 //     },
 //     formSection: {
 //       marginBottom: 20,
-//     },
-//     sectionTitle: {
-//       ...getFontStyle('semiBold', 18),
-//       color: colors.text,
-//       marginBottom: 12,
 //     },
 //     label: {
 //       ...getFontStyle('medium', 16),
@@ -316,11 +278,13 @@
 //       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
 //       borderRadius: 8,
 //       padding: 12,
-//       fontSize: 16,
+//       ...getFontStyle('regular', 16),
 //       color: colors.text,
 //       borderWidth: 1,
 //       borderColor: 'transparent',
-//       marginBottom: 4,
+//     },
+//     inputError: {
+//       borderColor: colors.error,
 //     },
 //     textArea: {
 //       minHeight: 100,
@@ -329,7 +293,7 @@
 //     errorText: {
 //       ...getFontStyle('regular', 14),
 //       color: colors.error,
-//       marginBottom: 8,
+//       marginTop: 4,
 //     },
 //     imagesContainer: {
 //       flexDirection: 'row',
@@ -349,7 +313,6 @@
 //     image: {
 //       width: '100%',
 //       height: '100%',
-//       borderRadius: 8,
 //     },
 //     removeImageButton: {
 //       position: 'absolute',
@@ -362,25 +325,10 @@
 //       justifyContent: 'center',
 //       alignItems: 'center',
 //     },
-//     addImageIcon: {
-//       color: isDarkMode ? '#AAAAAA' : '#666666',
-//     },
-//     imageButtonsContainer: {
-//       flexDirection: 'row',
-//       marginBottom: 16,
-//     },
-//     imageButton: {
-//       flexDirection: 'row',
-//       alignItems: 'center',
-//       backgroundColor: isDarkMode ? colors.card : '#F0F0F0',
-//       padding: 12,
-//       borderRadius: 8,
-//       marginRight: 12,
-//     },
-//     imageButtonText: {
-//       ...getFontStyle('medium', 15),
-//       color: colors.text,
-//       marginLeft: 8,
+//     addImageButton: {
+//       borderWidth: 2,
+//       borderColor: colors.primary,
+//       borderStyle: 'dashed',
 //     },
 //     locationContainer: {
 //       flexDirection: 'row',
@@ -388,7 +336,7 @@
 //       backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
 //       padding: 12,
 //       borderRadius: 8,
-//       marginBottom: 16,
+//       marginBottom: 8,
 //     },
 //     locationText: {
 //       ...getFontStyle('regular', 16),
@@ -413,15 +361,74 @@
 //       justifyContent: 'center',
 //       alignItems: 'center',
 //     },
+//     modalContainer: {
+//       flex: 1,
+//       backgroundColor: colors.background,
+//     },
+//     modalHeader: {
+//       flexDirection: 'row',
+//       alignItems: 'center',
+//       justifyContent: 'space-between',
+//       padding: 16,
+//       borderBottomWidth: 1,
+//       borderBottomColor: colors.border,
+//     },
+//     modalTitle: {
+//       ...getFontStyle('bold', 18),
+//       color: colors.text,
+//     },
+//     mapContainer: {
+//       flex: 1,
+//     },
+//     map: {
+//       flex: 1,
+//     },
+//     locationInputContainer: {
+//       position: 'absolute',
+//       top: 80,
+//       left: 16,
+//       right: 16,
+//       backgroundColor: colors.background,
+//       borderRadius: 8,
+//       padding: 12,
+//       shadowColor: '#000',
+//       shadowOffset: {width: 0, height: 2},
+//       shadowOpacity: 0.25,
+//       shadowRadius: 3.84,
+//       elevation: 5,
+//     },
+//     locationNameInput: {
+//       ...getFontStyle('regular', 16),
+//       color: colors.text,
+//     },
+//     confirmButton: {
+//       position: 'absolute',
+//       bottom: 30,
+//       left: 16,
+//       right: 16,
+//       backgroundColor: colors.primary,
+//       padding: 16,
+//       borderRadius: 8,
+//       alignItems: 'center',
+//     },
+//     confirmButtonText: {
+//       ...getFontStyle('semiBold', 16),
+//       color: '#FFFFFF',
+//     },
 //   });
 
-//   if (initialLoading || isLoadingProduct) {
+//   if (isLoadingProduct) {
 //     return (
 //       <SafeAreaView
 //         style={[styles.container, styles.loadingContainer]}
 //         edges={['top']}>
 //         <ActivityIndicator size="large" color={colors.primary} />
-//         <Text style={{...typography.body, marginTop: 16, color: colors.text}}>
+//         <Text
+//           style={{
+//             ...getFontStyle('regular', 16),
+//             marginTop: 16,
+//             color: colors.text,
+//           }}>
 //           Loading product details...
 //         </Text>
 //       </SafeAreaView>
@@ -435,11 +442,6 @@
 //           <Icon name="arrow-left" size={24} color={colors.text} />
 //         </TouchableOpacity>
 //         <Text style={styles.headerTitle}>Edit Product</Text>
-//         <TouchableOpacity
-//           style={styles.deleteButton}
-//           onPress={handleDeleteProduct}>
-//           <Icon name="delete" size={24} color="#D32F2F" />
-//         </TouchableOpacity>
 //       </View>
 
 //       <ScrollView style={styles.content}>
@@ -450,10 +452,7 @@
 //             name="title"
 //             render={({field: {value, onChange}}) => (
 //               <TextInput
-//                 style={[
-//                   styles.input,
-//                   errors.title && {borderColor: colors.error},
-//                 ]}
+//                 style={[styles.input, errors.title && styles.inputError]}
 //                 placeholder="Enter product title"
 //                 placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
 //                 value={value}
@@ -477,7 +476,7 @@
 //                 style={[
 //                   styles.input,
 //                   styles.textArea,
-//                   errors.description && {borderColor: colors.error},
+//                   errors.description && styles.inputError,
 //                 ]}
 //                 placeholder="Enter product description"
 //                 placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
@@ -495,16 +494,13 @@
 //         </View>
 
 //         <View style={styles.formSection}>
-//           <Text style={styles.label}>Price</Text>
+//           <Text style={styles.label}>Price ($)</Text>
 //           <Controller
 //             control={control}
 //             name="price"
 //             render={({field: {value, onChange}}) => (
 //               <TextInput
-//                 style={[
-//                   styles.input,
-//                   errors.price && {borderColor: colors.error},
-//                 ]}
+//                 style={[styles.input, errors.price && styles.inputError]}
 //                 placeholder="Enter price"
 //                 placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
 //                 value={value}
@@ -519,11 +515,7 @@
 //         </View>
 
 //         <View style={styles.formSection}>
-//           <Text style={styles.sectionTitle}>Images</Text>
-//           <Text style={[styles.label, {marginBottom: 12}]}>
-//             Add up to 5 images of your product
-//           </Text>
-
+//           <Text style={styles.label}>Images (up to 5)</Text>
 //           <View style={styles.imagesContainer}>
 //             {images.map((image, index) => (
 //               <View key={index} style={styles.imageBox}>
@@ -535,51 +527,40 @@
 //                 </TouchableOpacity>
 //               </View>
 //             ))}
-
 //             {images.length < 5 && (
 //               <TouchableOpacity
-//                 style={styles.imageBox}
-//                 onPress={() => handleSelectImage(false)}>
-//                 <Icon name="plus" size={40} style={styles.addImageIcon} />
+//                 style={[styles.imageBox, styles.addImageButton]}
+//                 onPress={handleSelectImage}>
+//                 <Icon name="plus" size={32} color={colors.primary} />
 //               </TouchableOpacity>
 //             )}
-//           </View>
-
-//           <View style={styles.imageButtonsContainer}>
-//             <TouchableOpacity
-//               style={styles.imageButton}
-//               onPress={() => handleSelectImage(false)}>
-//               <Icon name="image" size={22} color={colors.primary} />
-//               <Text style={styles.imageButtonText}>Gallery</Text>
-//             </TouchableOpacity>
-
-//             <TouchableOpacity
-//               style={styles.imageButton}
-//               onPress={() => handleSelectImage(true)}>
-//               <Icon name="camera" size={22} color={colors.primary} />
-//               <Text style={styles.imageButtonText}>Camera</Text>
-//             </TouchableOpacity>
 //           </View>
 //         </View>
 
 //         <View style={styles.formSection}>
-//           <Text style={styles.sectionTitle}>Location</Text>
+//           <Text style={styles.label}>Location</Text>
 //           <TouchableOpacity
 //             style={styles.locationContainer}
-//             onPress={handleSelectLocation}>
+//             onPress={() => setShowLocationPicker(true)}>
 //             <Icon name="map-marker" size={24} color={colors.primary} />
 //             <Text style={styles.locationText}>
-//               {control._formValues.location?.name || 'Select location'}
+//               {selectedLocation.name || 'Choose location from map'}
 //             </Text>
 //             <Icon name="chevron-right" size={24} color={colors.text} />
 //           </TouchableOpacity>
+//           {errors.location?.name && (
+//             <Text style={styles.errorText}>{errors.location.name.message}</Text>
+//           )}
 //         </View>
 
 //         <TouchableOpacity
-//           style={[styles.submitButton, isPending && {opacity: 0.7}]}
+//           style={[
+//             styles.submitButton,
+//             updateProductMutation.isPending && {opacity: 0.7},
+//           ]}
 //           onPress={handleSubmit(onSubmit)}
-//           disabled={isPending}>
-//           {isPending ? (
+//           disabled={updateProductMutation.isPending}>
+//           {updateProductMutation.isPending ? (
 //             <ActivityIndicator color="#FFFFFF" />
 //           ) : (
 //             <Text style={styles.submitButtonText}>Update Product</Text>
@@ -587,14 +568,59 @@
 //         </TouchableOpacity>
 //       </ScrollView>
 
-//       {showLocationPicker && (
-//         <SimpleLocationPicker
-//           visible={showLocationPicker}
-//           initialLocation={control._formValues.location}
-//           onLocationSelected={handleLocationSelected}
-//           onClose={() => setShowLocationPicker(false)}
-//         />
-//       )}
+//       {/* Location Picker Modal */}
+//       <Modal visible={showLocationPicker} animationType="slide">
+//         <SafeAreaView style={styles.modalContainer}>
+//           <View style={styles.modalHeader}>
+//             <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
+//               <Icon name="close" size={24} color={colors.text} />
+//             </TouchableOpacity>
+//             <Text style={styles.modalTitle}>Choose Location</Text>
+//             <View style={{width: 24}} />
+//           </View>
+
+//           <View style={styles.mapContainer}>
+//             <MapView
+//               style={styles.map}
+//               provider={PROVIDER_GOOGLE}
+//               region={mapRegion}
+//               onPress={handleMapPress}
+//               showsUserLocation
+//               showsMyLocationButton>
+//               <Marker
+//                 coordinate={{
+//                   latitude: selectedLocation.latitude,
+//                   longitude: selectedLocation.longitude,
+//                 }}
+//                 draggable
+//                 onDragEnd={handleMapPress}
+//               />
+//             </MapView>
+
+//             <View style={styles.locationInputContainer}>
+//               <Controller
+//                 control={control}
+//                 name="location.name"
+//                 render={({field: {value, onChange}}) => (
+//                   <TextInput
+//                     style={styles.locationNameInput}
+//                     placeholder="Enter location name"
+//                     placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+//                     value={value}
+//                     onChangeText={onChange}
+//                   />
+//                 )}
+//               />
+//             </View>
+
+//             <TouchableOpacity
+//               style={styles.confirmButton}
+//               onPress={handleLocationConfirm}>
+//               <Text style={styles.confirmButtonText}>Confirm Location</Text>
+//             </TouchableOpacity>
+//           </View>
+//         </SafeAreaView>
+//       </Modal>
 //     </SafeAreaView>
 //   );
 // };
