@@ -12,7 +12,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, NavigationProp} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -50,7 +50,7 @@ const productSchema = z.object({
 type ProductFormData = z.infer<typeof productSchema>;
 
 const AddProductScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   const {colors, isDarkMode, typography, getFontStyle} =
     useContext(ThemeContext);
   const insets = useSafeAreaInsets();
@@ -133,7 +133,7 @@ const AddProductScreen = () => {
   const selectImage = async (useCamera: boolean) => {
     const options = {
       mediaType: 'photo' as MediaType,
-      quality: 0.8,
+      quality: 'high', // <-- fix: use 'low' | 'medium' | 'high'
       maxWidth: 1200,
       maxHeight: 1200,
     };
@@ -175,8 +175,8 @@ const AddProductScreen = () => {
 
   const handleMapPress = (event: any) => {
     const {coordinate} = event.nativeEvent;
-    setValue('location.latitude', coordinate.latitude);
-    setValue('location.longitude', coordinate.longitude);
+    setValue('location.latitude' as any, coordinate.latitude);
+    setValue('location.longitude' as any, coordinate.longitude);
     setMapRegion({
       ...mapRegion,
       latitude: coordinate.latitude,
