@@ -5,12 +5,10 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  Image,
   ScrollView,
   TextInput,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import {useForm, Controller} from 'react-hook-form';
 import {z} from 'zod';
@@ -18,13 +16,9 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useAuthStore} from '../../store/authStore';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {
-  launchImageLibrary,
-  launchCamera,
-  ImagePickerResponse,
-  MediaType,
-} from 'react-native-image-picker';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import ProfileImagePicker from './ProfileImagePicker';
+import {CameraImage} from '../../hooks/useCamera';
 
 // Validation schema matching signup rules
 const profileSchema = z.object({
@@ -48,11 +42,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const {user, updateUserProfile, isLoading} = useAuthStore();
 
   // State for profile image
-  const [profileImage, setProfileImage] = useState<{
-    uri: string;
-    type: string;
-    name: string;
-  } | null>(null);
+  const [profileImage, setProfileImage] = useState<CameraImage | null>(null);
 
   const {
     control,
@@ -91,7 +81,11 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       };
 
       if (profileImage) {
-        updateData.profileImage = profileImage;
+        updateData.profileImage = {
+          uri: profileImage.uri,
+          type: profileImage.type,
+          name: profileImage.name,
+        };
       }
 
       const success = await updateUserProfile(updateData);
@@ -109,57 +103,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   };
 
-  // Handle image selection
-  const handleSelectImage = () => {
-    Alert.alert(
-      'Select Image',
-      'Choose how you want to select your profile picture',
-      [
-        {text: 'Camera', onPress: () => selectImage(true)},
-        {text: 'Gallery', onPress: () => selectImage(false)},
-        {text: 'Cancel', style: 'cancel'},
-      ],
-    );
-  };
-
-  const selectImage = async (useCamera: boolean) => {
-    const options = {
-      mediaType: 'photo' as MediaType,
-      quality: 0.8,
-      maxWidth: 400,
-      maxHeight: 400,
-    };
-
-    try {
-      const result: ImagePickerResponse = useCamera
-        ? await launchCamera(options)
-        : await launchImageLibrary(options);
-
-      if (result.didCancel || result.errorCode) {
-        return;
-      }
-
-      if (result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setProfileImage({
-          uri: asset.uri!,
-          type: asset.type || 'image/jpeg',
-          name: asset.fileName || `profile-${Date.now()}.jpg`,
-        });
-      }
-    } catch (error) {
-      console.error('Image selection error:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
-    }
-  };
-
-  // Remove selected image
-  const removeImage = () => {
-    setProfileImage(null);
-  };
-
   // Get profile image to display
-  const getProfileImageUri = () => {
+  const getCurrentImageUri = (): string | null => {
     if (profileImage) {
       return profileImage.uri;
     }
@@ -214,50 +159,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     imageSection: {
       alignItems: 'center',
       marginBottom: 30,
-    },
-    imageContainer: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 16,
-      overflow: 'hidden',
-    },
-    profileImage: {
-      width: '100%',
-      height: '100%',
-      resizeMode: 'cover',
-    },
-    profileInitial: {
-      ...getFontStyle('bold', 40),
-      color: colors.primary,
-    },
-    imageActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    imageButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-      marginRight: 12,
-    },
-    imageButtonText: {
-      ...getFontStyle('semiBold', 14),
-      color: '#FFFFFF',
-    },
-    removeButton: {
-      backgroundColor: isDarkMode ? '#333333' : '#F0F0F0',
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-    },
-    removeButtonText: {
-      ...getFontStyle('semiBold', 14),
-      color: colors.error,
     },
     inputContainer: {
       marginBottom: 20,
@@ -319,6 +220,18 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       alignItems: 'center',
       justifyContent: 'center',
     },
+    imagePreview: {
+      marginTop: 16,
+      padding: 12,
+      backgroundColor: colors.primary + '10',
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    imagePreviewText: {
+      ...getFontStyle('regular', 14),
+      color: colors.primary,
+      textAlign: 'center',
+    },
   });
 
   return (
@@ -344,36 +257,26 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <ScrollView style={styles.content}>
             {/* Profile Image Section */}
             <View style={styles.imageSection}>
-              <View style={styles.imageContainer}>
-                {getProfileImageUri() ? (
-                  <Image
-                    source={{uri: getProfileImageUri()!}}
-                    style={styles.profileImage}
-                  />
-                ) : (
-                  <Text style={styles.profileInitial}>{getInitials()}</Text>
-                )}
-              </View>
+              <ProfileImagePicker
+                currentImage={getCurrentImageUri()}
+                onImageChange={setProfileImage}
+                initials={getInitials()}
+                isLoading={isLoading}
+                size={120}
+              />
 
-              <View style={styles.imageActions}>
-                <TouchableOpacity
-                  style={styles.imageButton}
-                  onPress={handleSelectImage}
-                  testID="select-image-button">
-                  <Text style={styles.imageButtonText}>
-                    {getProfileImageUri() ? 'Change Photo' : 'Add Photo'}
+              {profileImage && (
+                <View style={styles.imagePreview}>
+                  <Icon name="check-circle" size={20} color={colors.primary} />
+                  <Text style={styles.imagePreviewText}>
+                    New profile photo selected
+                    {profileImage.fileSize &&
+                      `\nSize: ${(profileImage.fileSize / 1024 / 1024).toFixed(
+                        1,
+                      )}MB`}
                   </Text>
-                </TouchableOpacity>
-
-                {(profileImage || user?.profileImage?.url) && (
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={removeImage}
-                    testID="remove-image-button">
-                    <Text style={styles.removeButtonText}>Remove</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+                </View>
+              )}
             </View>
 
             {/* Form Fields */}

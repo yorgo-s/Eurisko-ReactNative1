@@ -6,8 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Image,
-  Platform,
   ActivityIndicator,
   Alert,
   Modal,
@@ -19,15 +17,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useForm, Controller} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
-import {
-  launchImageLibrary,
-  launchCamera,
-  ImagePickerResponse,
-  MediaType,
-} from 'react-native-image-picker';
 import {useCreateProduct} from '../../hooks/useProducts';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
-import LocationPicker from '../../components/common/LocationPicker';
+import ImagePickerComponent from '../../components/common/ImagePicker';
+import {CameraImage} from '../../hooks/useCamera';
 
 // Validation schema
 const productSchema = z.object({
@@ -51,13 +44,10 @@ type ProductFormData = z.infer<typeof productSchema>;
 
 const AddProductScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
-  const {colors, isDarkMode, typography, getFontStyle} =
-    useContext(ThemeContext);
+  const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
   const insets = useSafeAreaInsets();
 
-  const [images, setImages] = useState<
-    Array<{uri: string; type: string; name: string}>
-  >([]);
+  const [images, setImages] = useState<CameraImage[]>([]);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [mapRegion, setMapRegion] = useState({
     latitude: 33.8547,
@@ -95,12 +85,19 @@ const AddProductScreen = () => {
       return;
     }
 
+    // Convert CameraImage[] to the format expected by the API
+    const formattedImages = images.map(image => ({
+      uri: image.uri,
+      type: image.type,
+      fileName: image.name,
+    }));
+
     const productData = {
       title: data.title,
       description: data.description,
       price: Number(data.price),
       location: JSON.stringify(data.location),
-      images: images,
+      images: formattedImages,
     };
 
     createProductMutation.mutate(productData, {
@@ -116,61 +113,6 @@ const AddProductScreen = () => {
         );
       },
     });
-  };
-
-  const handleSelectImage = () => {
-    Alert.alert(
-      'Select Image',
-      'Choose from where you want to select an image',
-      [
-        {text: 'Camera', onPress: () => selectImage(true)},
-        {text: 'Gallery', onPress: () => selectImage(false)},
-        {text: 'Cancel', style: 'cancel'},
-      ],
-    );
-  };
-
-  const selectImage = async (useCamera: boolean) => {
-    const options = {
-      mediaType: 'photo' as MediaType,
-      quality: 'high', // <-- fix: use 'low' | 'medium' | 'high'
-      maxWidth: 1200,
-      maxHeight: 1200,
-    };
-
-    try {
-      const result: ImagePickerResponse = useCamera
-        ? await launchCamera(options)
-        : await launchImageLibrary(options);
-
-      if (result.didCancel || result.errorCode) {
-        return;
-      }
-
-      if (result.assets && result.assets.length > 0) {
-        const newImages = result.assets.map(asset => ({
-          uri: asset.uri!,
-          type: asset.type || 'image/jpeg',
-          name: asset.fileName || `image-${Date.now()}.jpg`,
-        }));
-
-        if (images.length + newImages.length > 5) {
-          Alert.alert('Error', 'You can only add up to 5 images');
-          return;
-        }
-
-        setImages([...images, ...newImages]);
-      }
-    } catch (error) {
-      console.error('Image selection error:', error);
-      Alert.alert('Error', 'Failed to select image');
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    const newImages = [...images];
-    newImages.splice(index, 1);
-    setImages(newImages);
   };
 
   const handleMapPress = (event: any) => {
@@ -241,41 +183,6 @@ const AddProductScreen = () => {
       ...getFontStyle('regular', 14),
       color: colors.error,
       marginTop: 4,
-    },
-    imagesContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 16,
-    },
-    imageBox: {
-      width: 100,
-      height: 100,
-      backgroundColor: isDarkMode ? '#333333' : '#E0E0E0',
-      borderRadius: 8,
-      margin: 4,
-      justifyContent: 'center',
-      alignItems: 'center',
-      overflow: 'hidden',
-    },
-    image: {
-      width: '100%',
-      height: '100%',
-    },
-    removeImageButton: {
-      position: 'absolute',
-      top: 4,
-      right: 4,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      borderRadius: 12,
-      width: 24,
-      height: 24,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    addImageButton: {
-      borderWidth: 2,
-      borderColor: colors.primary,
-      borderStyle: 'dashed',
     },
     locationContainer: {
       flexDirection: 'row',
@@ -357,6 +264,33 @@ const AddProductScreen = () => {
       ...getFontStyle('semiBold', 16),
       color: '#FFFFFF',
     },
+    imagesSection: {
+      marginBottom: 20,
+    },
+    imagesSectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    imageCountBadge: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      minWidth: 24,
+      alignItems: 'center',
+    },
+    imageCountText: {
+      ...getFontStyle('semiBold', 12),
+      color: '#FFFFFF',
+    },
+    requirementText: {
+      ...getFontStyle('regular', 12),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
   });
 
   return (
@@ -368,7 +302,8 @@ const AddProductScreen = () => {
         <Text style={styles.headerTitle}>Add Product</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Title Input */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Title</Text>
           <Controller
@@ -382,6 +317,7 @@ const AddProductScreen = () => {
                 value={value}
                 onChangeText={onChange}
                 maxLength={100}
+                testID="title-input"
               />
             )}
           />
@@ -390,6 +326,7 @@ const AddProductScreen = () => {
           )}
         </View>
 
+        {/* Description Input */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Description</Text>
           <Controller
@@ -409,6 +346,7 @@ const AddProductScreen = () => {
                 multiline
                 numberOfLines={5}
                 maxLength={500}
+                testID="description-input"
               />
             )}
           />
@@ -417,6 +355,7 @@ const AddProductScreen = () => {
           )}
         </View>
 
+        {/* Price Input */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Price ($)</Text>
           <Controller
@@ -430,6 +369,7 @@ const AddProductScreen = () => {
                 value={value}
                 onChangeText={onChange}
                 keyboardType="numeric"
+                testID="price-input"
               />
             )}
           />
@@ -438,34 +378,36 @@ const AddProductScreen = () => {
           )}
         </View>
 
+        {/* Images Section */}
         <View style={styles.formSection}>
-          <Text style={styles.label}>Images (up to 5)</Text>
-          <View style={styles.imagesContainer}>
-            {images.map((image, index) => (
-              <View key={index} style={styles.imageBox}>
-                <Image source={{uri: image.uri}} style={styles.image} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => handleRemoveImage(index)}>
-                  <Icon name="close" size={16} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            {images.length < 5 && (
-              <TouchableOpacity
-                style={[styles.imageBox, styles.addImageButton]}
-                onPress={handleSelectImage}>
-                <Icon name="plus" size={32} color={colors.primary} />
-              </TouchableOpacity>
-            )}
+          <View style={styles.imagesSectionHeader}>
+            <Text style={styles.label}>Product Images</Text>
+            <View style={styles.imageCountBadge}>
+              <Text style={styles.imageCountText}>{images.length}/5</Text>
+            </View>
           </View>
+          <Text style={styles.requirementText}>
+            Add at least 1 image (up to 5 images allowed)
+          </Text>
+
+          <ImagePickerComponent
+            images={images}
+            onImagesChange={setImages}
+            maxImages={5}
+            allowMultiple={true}
+            imageSize={100}
+            title=""
+            showImageCount={false}
+          />
         </View>
 
+        {/* Location Section */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Location</Text>
           <TouchableOpacity
             style={styles.locationContainer}
-            onPress={() => setShowLocationPicker(true)}>
+            onPress={() => setShowLocationPicker(true)}
+            testID="location-button">
             <Icon name="map-marker" size={24} color={colors.primary} />
             <Text style={styles.locationText}>
               {selectedLocation.name || 'Choose location from map'}
@@ -477,13 +419,15 @@ const AddProductScreen = () => {
           )}
         </View>
 
+        {/* Submit Button */}
         <TouchableOpacity
           style={[
             styles.submitButton,
             createProductMutation.isPending && {opacity: 0.7},
           ]}
           onPress={handleSubmit(onSubmit)}
-          disabled={createProductMutation.isPending}>
+          disabled={createProductMutation.isPending}
+          testID="submit-button">
           {createProductMutation.isPending ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
@@ -502,17 +446,6 @@ const AddProductScreen = () => {
             <Text style={styles.modalTitle}>Choose Location</Text>
             <View style={{width: 24}} />
           </View>
-
-          {/* <LocationPicker
-            visible={showLocationPicker}
-            onClose={() => setShowLocationPicker(false)}
-            onLocationSelect={location => {
-              setValue('location', location);
-              setShowLocationPicker(false);
-            }}
-            initialLocation={watch('location')}
-            title="Choose Product Location"
-          /> */}
 
           <View style={styles.mapContainer}>
             <MapView
@@ -543,6 +476,7 @@ const AddProductScreen = () => {
                     placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
                     value={value}
                     onChangeText={onChange}
+                    testID="location-name-input"
                   />
                 )}
               />
@@ -550,7 +484,8 @@ const AddProductScreen = () => {
 
             <TouchableOpacity
               style={styles.confirmButton}
-              onPress={handleLocationConfirm}>
+              onPress={handleLocationConfirm}
+              testID="confirm-location-button">
               <Text style={styles.confirmButtonText}>Confirm Location</Text>
             </TouchableOpacity>
           </View>
