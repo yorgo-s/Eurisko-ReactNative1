@@ -30,6 +30,13 @@ import {useAuthStore} from '../../store/authStore';
 import {useMutation} from '@tanstack/react-query';
 import {productsApi} from '../../api/products';
 import {queryClient} from '../../api/queryClient';
+import ContactSeller from '../../components/products/ContactSeller';
+import ProductSharing, {
+  QuickShareBar,
+} from '../../components/products/ProductSharing';
+import ProductImageGallery from '../../components/products/ProductImageGallery';
+import ProductLocationMap from '../../components/products/ProductLocationMap';
+import ImageViewing from 'react-native-image-viewing';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -50,12 +57,9 @@ const ProductDetailsScreen = () => {
   const productId = route.params._id;
   const {user} = useAuthStore();
 
-  // State for image gallery
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showImagePopup, setShowImagePopup] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState('');
-  const [popupPosition, setPopupPosition] = useState({x: 0, y: 0});
-  const [isSaving, setIsSaving] = useState(false);
+  // State for image viewer
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [imageViewerIndex, setImageViewerIndex] = useState(0);
 
   // Use React Query hook to fetch product details
   const {
@@ -124,242 +128,10 @@ const ProductDetailsScreen = () => {
     );
   };
 
-  const handleImageScroll = (event: any) => {
-    const scrollPosition = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollPosition / screenWidth);
-    setCurrentImageIndex(index);
-  };
-
-  const handleImageLongPress = async (imageUrl: string, event?: any) => {
-    setSelectedImageUrl(imageUrl);
-
-    // Get touch position for popup placement
-    if (event && event.nativeEvent) {
-      const {pageX, pageY} = event.nativeEvent;
-      setPopupPosition({
-        x: pageX - 80, // Center the popup
-        y: pageY - 60, // Position above touch point
-      });
-    } else {
-      // Fallback to center of screen
-      setPopupPosition({
-        x: screenWidth / 2 - 80,
-        y: 200,
-      });
-    }
-
-    setShowImagePopup(true);
-  };
-
-  const requestStoragePermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        // For Android 13+ (API 33+), we need different permissions
-        if (Platform.Version >= 33) {
-          const permission = await check(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
-          if (permission === RESULTS.GRANTED) {
-            return true;
-          }
-
-          const result = await request(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
-          return result === RESULTS.GRANTED;
-        } else {
-          // For older Android versions
-          const permission = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          );
-
-          if (permission) {
-            return true;
-          }
-
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-            {
-              title: 'Storage Permission',
-              message: 'This app needs access to storage to save images.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-
-          return granted === PermissionsAndroid.RESULTS.GRANTED;
-        }
-      } catch (err) {
-        console.warn('Permission error:', err);
-        return false;
-      }
-    }
-
-    // iOS doesn't need permission for saving to photo library with RNFS
-    return true;
-  };
-
-  const saveImageToGallery = async () => {
-    try {
-      setIsSaving(true);
-
-      // Check and request permissions
-      const hasPermission = await requestStoragePermission();
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Storage permission is required to save images. Please enable it in your device settings.',
-        );
-        setIsSaving(false);
-        setShowImagePopup(false);
-        return;
-      }
-
-      // Generate a unique filename
-      const timestamp = new Date().getTime();
-      const filename = `product_image_${timestamp}.jpg`;
-
-      // For Android, save to Downloads folder which is more reliable
-      const downloadPath =
-        Platform.OS === 'android'
-          ? `${RNFS.DownloadDirectoryPath}/${filename}`
-          : `${RNFS.DocumentDirectoryPath}/${filename}`;
-
-      console.log('Saving image to:', downloadPath);
-      console.log('Image URL:', selectedImageUrl);
-
-      // Download the image
-      const downloadResult = await RNFS.downloadFile({
-        fromUrl: selectedImageUrl,
-        toFile: downloadPath,
-        progressDivider: 1,
-        begin: res => {
-          console.log('Download started:', res);
-        },
-        progress: res => {
-          console.log('Download progress:', res);
-        },
-      }).promise;
-
-      console.log('Download result:', downloadResult);
-
-      if (downloadResult.statusCode === 200) {
-        // Verify the file was created
-        const fileExists = await RNFS.exists(downloadPath);
-        console.log('File exists after download:', fileExists);
-
-        if (fileExists) {
-          const fileStats = await RNFS.stat(downloadPath);
-          console.log('File stats:', fileStats);
-
-          setIsSaving(false);
-          setShowImagePopup(false);
-
-          setTimeout(() => {
-            Alert.alert(
-              'Success!',
-              `Image saved to ${
-                Platform.OS === 'android' ? 'Downloads' : 'device'
-              } folder.`,
-            );
-          }, 500);
-        } else {
-          throw new Error('File was not created');
-        }
-      } else {
-        throw new Error(
-          `Download failed with status: ${downloadResult.statusCode}`,
-        );
-      }
-    } catch (error) {
-      console.error('Error saving image:', error);
-      setIsSaving(false);
-      setShowImagePopup(false);
-
-      setTimeout(() => {
-        Alert.alert(
-          'Error',
-          `Failed to save image: ${error.message}. Please try again.`,
-        );
-      }, 500);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!product) return;
-
-    try {
-      const message = `Check out this amazing product: ${
-        product.title
-      } - $${product.price.toFixed(2)}`;
-
-      Alert.alert('Share Product', message, [{text: 'OK'}]);
-    } catch (error) {
-      console.error('Error sharing product:', error);
-    }
-  };
-
-  const handleContactSeller = () => {
-    if (!product?.user?.email) {
-      Alert.alert('Error', 'Seller contact information not available');
-      return;
-    }
-
-    const subject = `Inquiry about: ${product.title}`;
-    const body =
-      `Hi,\n\n` +
-      `I'm interested in your product "${
-        product.title
-      }" listed for ${product.price.toFixed(2)}.\n\n` +
-      `Could you please provide more information?\n\n` +
-      `Thank you!`;
-
-    const emailUrl = `mailto:${product.user.email}?subject=${encodeURIComponent(
-      subject,
-    )}&body=${encodeURIComponent(body)}`;
-
-    Linking.canOpenURL(emailUrl).then(supported => {
-      if (supported) {
-        Linking.openURL(emailUrl);
-      } else {
-        Alert.alert(
-          'Email Not Available',
-          `No email app found. Please contact: ${product.user?.email}`,
-          [{text: 'OK'}],
-        );
-      }
-    });
-  };
-
-  const handleOpenInMaps = () => {
-    if (!product?.location) return;
-
-    const {latitude, longitude} = product.location;
-    const label = `${product.title} - ${product.location.name}`;
-
-    const appleUrl = `maps:0,0?q=${latitude},${longitude}`;
-    const googleUrl = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encodeURIComponent(
-      label,
-    )})`;
-    const webUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-
-    Alert.alert('Open in Maps', 'Choose your preferred maps application', [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: Platform.OS === 'ios' ? 'Apple Maps' : 'Google Maps',
-        onPress: () => {
-          const url = Platform.OS === 'ios' ? appleUrl : googleUrl;
-          Linking.canOpenURL(url).then(supported => {
-            if (supported) {
-              Linking.openURL(url);
-            } else {
-              Linking.openURL(webUrl);
-            }
-          });
-        },
-      },
-      {
-        text: 'Web Browser',
-        onPress: () => Linking.openURL(webUrl),
-      },
-    ]);
+  // Handle image press to open image viewer
+  const handleImagePress = (index: number) => {
+    setImageViewerIndex(index);
+    setImageViewerVisible(true);
   };
 
   const styles = StyleSheet.create({
@@ -378,63 +150,6 @@ const ProductDetailsScreen = () => {
       height: isLandscape
         ? windowHeight - insets.top - insets.bottom
         : windowHeight * 0.4,
-      backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-    },
-    imageScrollView: {
-      flex: 1,
-    },
-    imageContainer: {
-      width: screenWidth,
-      height: '100%',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    image: {
-      width: '100%',
-      height: '100%',
-      resizeMode: 'contain',
-    },
-    imagePlaceholder: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.card,
-    },
-    imageCounter: {
-      position: 'absolute',
-      top: 20,
-      right: 20,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 12,
-    },
-    counterText: {
-      color: '#FFFFFF',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    dotsContainer: {
-      position: 'absolute',
-      bottom: 20,
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    dot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginHorizontal: 4,
-      backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    },
-    activeDot: {
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      width: 10,
-      height: 10,
-      borderRadius: 5,
     },
     contentContainer: {
       padding: 16,
@@ -500,173 +215,6 @@ const ProductDetailsScreen = () => {
       ...getFontStyle('semiBold', 16),
       color: '#FFFFFF',
       marginLeft: 8,
-    },
-    sellerContainer: {
-      marginBottom: 16,
-      padding: 16,
-      backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
-      borderRadius: 12,
-    },
-    sellerTitle: {
-      ...getFontStyle('semiBold', 16),
-      color: colors.text,
-      marginBottom: 8,
-    },
-    sellerInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    sellerText: {
-      ...typography.body,
-      marginLeft: 8,
-      color: colors.text,
-    },
-    actionButtons: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    shareButton: {
-      backgroundColor: isDarkMode ? '#333333' : '#E9ECEF',
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flex: 1,
-      flexDirection: 'row',
-    },
-    shareButtonText: {
-      ...getFontStyle('semiBold', 16),
-      marginLeft: 8,
-      color: colors.text,
-    },
-    contactButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flex: 1,
-      flexDirection: 'row',
-    },
-    contactButtonText: {
-      ...getFontStyle('semiBold', 16),
-      color: '#FFFFFF',
-      marginLeft: 8,
-    },
-    locationContainer: {
-      marginBottom: 16,
-      borderRadius: 12,
-      overflow: 'hidden',
-      backgroundColor: colors.card,
-    },
-    mapContainer: {
-      height: 200,
-    },
-    map: {
-      flex: 1,
-    },
-    locationInfo: {
-      padding: 16,
-      backgroundColor: colors.background,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    locationHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 8,
-    },
-    locationTitle: {
-      ...getFontStyle('semiBold', 16),
-      color: colors.text,
-      flex: 1,
-    },
-    openButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.primary,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
-    },
-    openButtonText: {
-      ...getFontStyle('medium', 14),
-      color: '#FFFFFF',
-      marginLeft: 4,
-    },
-    locationName: {
-      ...getFontStyle('regular', 14),
-      color: isDarkMode ? '#AAAAAA' : '#666666',
-    },
-    coordinatesText: {
-      ...getFontStyle('regular', 12),
-      color: isDarkMode ? '#888888' : '#999999',
-      marginTop: 4,
-    },
-    noLocationContainer: {
-      height: 200,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.card,
-    },
-    noLocationText: {
-      ...getFontStyle('regular', 16),
-      color: isDarkMode ? '#AAAAAA' : '#666666',
-      marginTop: 8,
-    },
-    // Save Image Popup Styles
-    popupOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'transparent',
-    },
-    imagePopup: {
-      position: 'absolute',
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      paddingVertical: 8,
-      paddingHorizontal: 4,
-      minWidth: 160,
-      shadowColor: '#000',
-      shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      elevation: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    popupOption: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-    },
-    popupOptionActive: {
-      backgroundColor: isDarkMode ? '#333333' : '#F0F0F0',
-    },
-    popupIcon: {
-      marginRight: 12,
-      width: 20,
-      alignItems: 'center',
-    },
-    popupText: {
-      ...getFontStyle('medium', 16),
-      color: colors.text,
-      flex: 1,
-    },
-    loadingIcon: {
-      marginRight: 12,
-      width: 20,
-      alignItems: 'center',
-    },
-    disabledOption: {
-      opacity: 0.6,
     },
     errorContainer: {
       flex: 1,
@@ -738,6 +286,9 @@ const ProductDetailsScreen = () => {
   }
 
   const productImages = product.images || [];
+  const imageUrls = productImages.map(img => ({
+    uri: getImageUrl(img.url),
+  }));
 
   return (
     <View style={styles.container}>
@@ -752,61 +303,15 @@ const ProductDetailsScreen = () => {
         <View style={styles.contentWrapper}>
           {/* Enhanced Image Gallery Section */}
           <View style={styles.imageSection}>
-            {productImages.length > 0 ? (
-              <>
-                <ScrollView
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onScroll={handleImageScroll}
-                  scrollEventThrottle={16}
-                  style={styles.imageScrollView}>
-                  {productImages.map((image, index) => (
-                    <TouchableOpacity
-                      key={image._id}
-                      style={styles.imageContainer}
-                      onLongPress={event =>
-                        handleImageLongPress(getImageUrl(image.url), event)
-                      }
-                      activeOpacity={0.9}>
-                      <Image
-                        source={{uri: getImageUrl(image.url)}}
-                        style={styles.image}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                {/* Image Counter */}
-                {productImages.length > 1 && (
-                  <View style={styles.imageCounter}>
-                    <Text style={styles.counterText}>
-                      {currentImageIndex + 1} / {productImages.length}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Dots Indicator */}
-                {productImages.length > 1 && (
-                  <View style={styles.dotsContainer}>
-                    {productImages.map((_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.dot,
-                          index === currentImageIndex && styles.activeDot,
-                        ]}
-                      />
-                    ))}
-                  </View>
-                )}
-              </>
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Icon name="image-off" size={40} color={colors.text} />
-              </View>
-            )}
+            <ProductImageGallery
+              images={productImages}
+              containerHeight={
+                isLandscape
+                  ? windowHeight - insets.top - insets.bottom
+                  : windowHeight * 0.4
+              }
+              onImagePress={handleImagePress}
+            />
           </View>
 
           {/* Content Section */}
@@ -849,6 +354,16 @@ const ProductDetailsScreen = () => {
               </View>
             )}
 
+            {/* Quick Share Bar (for non-owners) */}
+            {!isOwner && (
+              <QuickShareBar
+                product={product}
+                onShareComplete={() => {
+                  console.log('Product shared successfully');
+                }}
+              />
+            )}
+
             {/* Description Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
@@ -860,170 +375,68 @@ const ProductDetailsScreen = () => {
             <View style={styles.divider} />
 
             {/* Location Section */}
-            {product.location ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Location</Text>
-                <View style={styles.locationContainer}>
-                  <View style={styles.mapContainer}>
-                    <MapView
-                      style={styles.map}
-                      provider={PROVIDER_GOOGLE}
-                      initialRegion={{
-                        latitude: product.location.latitude,
-                        longitude: product.location.longitude,
-                        latitudeDelta: 0.01,
-                        longitudeDelta: 0.01,
-                      }}
-                      scrollEnabled={true}
-                      zoomEnabled={true}
-                      pitchEnabled={false}
-                      rotateEnabled={false}
-                      onPress={handleOpenInMaps}>
-                      <Marker
-                        coordinate={{
-                          latitude: product.location.latitude,
-                          longitude: product.location.longitude,
-                        }}
-                        title={product.title}
-                        description={product.location.name}>
-                        <View
-                          style={{
-                            backgroundColor: colors.primary,
-                            padding: 8,
-                            borderRadius: 20,
-                            borderWidth: 2,
-                            borderColor: '#FFFFFF',
-                          }}>
-                          <Icon name="shopping" size={16} color="#FFFFFF" />
-                        </View>
-                      </Marker>
-                    </MapView>
-                  </View>
-
-                  <View style={styles.locationInfo}>
-                    <View style={styles.locationHeader}>
-                      <Text style={styles.locationTitle} numberOfLines={1}>
-                        📍 {product.location.name}
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.openButton}
-                        onPress={handleOpenInMaps}>
-                        <Icon name="directions" size={16} color="#FFFFFF" />
-                        <Text style={styles.openButtonText}>Directions</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.coordinatesText}>
-                      {product.location.latitude.toFixed(6)},{' '}
-                      {product.location.longitude.toFixed(6)}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Location</Text>
-                <View style={styles.noLocationContainer}>
-                  <Icon name="map-marker-off" size={32} color={colors.text} />
-                  <Text style={styles.noLocationText}>
-                    Location not available
-                  </Text>
-                </View>
-              </View>
-            )}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Location</Text>
+              <ProductLocationMap
+                location={product.location}
+                showOpenInMapsButton={true}
+                productTitle={product.title}
+              />
+            </View>
 
             <View style={styles.divider} />
 
-            {/* Enhanced Seller Information */}
-            <View style={styles.sellerContainer}>
-              <Text style={styles.sellerTitle}>Seller Information</Text>
-              <View style={styles.sellerInfo}>
-                <Icon name="account-circle" size={24} color={colors.primary} />
-                <Text style={styles.sellerText}>
-                  {product.user?.email || 'Unknown Seller'}
-                </Text>
-              </View>
+            {/* Contact Seller Section (for non-owners) */}
+            {!isOwner && (
+              <>
+                <ContactSeller
+                  product={product}
+                  onContactComplete={() => {
+                    console.log('Contact initiated');
+                  }}
+                />
+                <View style={styles.divider} />
+              </>
+            )}
 
-              {/* Action Buttons for non-owners */}
-              {!isOwner && (
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity
-                    style={styles.shareButton}
-                    onPress={handleShare}
-                    testID="share-button">
-                    <Icon name="share-variant" size={20} color={colors.text} />
-                    <Text style={styles.shareButtonText}>Share</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.contactButton}
-                    onPress={handleContactSeller}
-                    testID="contact-button">
-                    <Icon name="email" size={20} color="#FFFFFF" />
-                    <Text style={styles.contactButtonText}>Contact</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+            {/* Full Product Sharing Component */}
+            <ProductSharing
+              product={product}
+              onShareComplete={() => {
+                console.log('Product shared successfully');
+              }}
+            />
           </View>
         </View>
       </ScrollView>
 
-      {/* Image Popup Menu */}
-      {showImagePopup && (
-        <Modal
-          visible={showImagePopup}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowImagePopup(false)}>
-          <TouchableOpacity
-            style={styles.popupOverlay}
-            activeOpacity={1}
-            onPress={() => setShowImagePopup(false)}>
-            <View
-              style={[
-                styles.imagePopup,
-                {
-                  left: Math.max(
-                    10,
-                    Math.min(popupPosition.x, screenWidth - 170),
-                  ),
-                  top: Math.max(
-                    50,
-                    Math.min(popupPosition.y, windowHeight - 150),
-                  ),
-                },
-              ]}>
-              {/* Save Option */}
-              <TouchableOpacity
-                style={[styles.popupOption, isSaving && styles.disabledOption]}
-                onPress={saveImageToGallery}
-                disabled={isSaving}>
-                <View style={styles.popupIcon}>
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Icon name="download" size={20} color={colors.primary} />
-                  )}
-                </View>
-                <Text style={styles.popupText}>
-                  {isSaving ? 'Saving...' : 'Save Image'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Share Option */}
-              {/* <TouchableOpacity
-                style={[styles.popupOption, isSaving && styles.disabledOption]}
-                onPress={handleShareImage}
-                disabled={isSaving}>
-                <View style={styles.popupIcon}>
-                  <Icon name="share-variant" size={20} color={colors.text} />
-                </View>
-                <Text style={styles.popupText}>Share Image</Text>
-              </TouchableOpacity> */}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
+      {/* Image Viewer Modal */}
+      <ImageViewing
+        images={imageUrls}
+        imageIndex={imageViewerIndex}
+        visible={imageViewerVisible}
+        onRequestClose={() => setImageViewerVisible(false)}
+        swipeToCloseEnabled={true}
+        doubleTapToZoomEnabled={true}
+        presentationStyle="overFullScreen"
+        HeaderComponent={({imageIndex}) => (
+          <View
+            style={{
+              position: 'absolute',
+              top: insets.top + 20,
+              right: 20,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 12,
+              zIndex: 1,
+            }}>
+            <Text style={{color: '#FFFFFF', fontSize: 14, fontWeight: '600'}}>
+              {imageIndex + 1} / {imageUrls.length}
+            </Text>
+          </View>
+        )}
+      />
     </View>
   );
 };

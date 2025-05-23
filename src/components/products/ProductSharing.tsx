@@ -1,4 +1,5 @@
 // src/components/products/ProductSharing.tsx
+// Replace the existing ProductSharing component with this updated version
 
 import React, {useContext} from 'react';
 import {
@@ -7,10 +8,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  Linking,
   Platform,
+  Share as RNShare,
+  Clipboard,
 } from 'react-native';
-import Share from 'react-native-share';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from '../../api/products';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -37,10 +38,11 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
 
   // Generate product URL (in a real app, this would be your deep link)
   const generateProductUrl = () => {
+    // This could be a deep link in a real app
     return `https://yourapp.com/products/${product._id}`;
   };
 
-  // Create rich share message
+  // Create share message
   const createShareMessage = () => {
     const url = generateProductUrl();
     const message =
@@ -55,41 +57,73 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     return message;
   };
 
-  // Handle general sharing
+  // Handle general sharing using React Native's built-in Share API
   const handleShare = async () => {
     try {
       const message = createShareMessage();
-      const imageUrl =
-        product.images && product.images.length > 0
-          ? getImageUrl(product.images[0].url)
-          : undefined;
 
-      const shareOptions = {
-        title: `${product.title} - $${product.price.toFixed(2)}`,
+      const result = await RNShare.share({
         message: message,
-        url: imageUrl,
-        failOnCancel: false,
-      };
+        title: `${product.title} - $${product.price.toFixed(2)}`,
+        // On iOS, you can also share a URL separately
+        url:
+          product.images && product.images.length > 0
+            ? getImageUrl(product.images[0].url)
+            : undefined,
+      });
 
-      const result = await Share.open(shareOptions);
-
-      if (result.success) {
+      if (result.action === RNShare.sharedAction) {
+        if (result.activityType) {
+          // Shared with activity type of result.activityType
+          console.log('Shared with activity:', result.activityType);
+        } else {
+          // Shared
+          console.log('Product shared successfully');
+        }
         onShareComplete?.();
+      } else if (result.action === RNShare.dismissedAction) {
+        // Dismissed
+        console.log('Share dismissed');
       }
     } catch (error: any) {
-      if (error.message !== 'User did not share') {
-        console.error('Share error:', error);
-        Alert.alert('Error', 'Failed to share product');
-      }
+      console.error('Share error:', error);
+      Alert.alert('Error', 'Failed to share product');
     }
+  };
+
+  // Handle copy link
+  const handleCopyLink = () => {
+    const url = generateProductUrl();
+    const message = createShareMessage();
+
+    // Copy to clipboard
+    Clipboard.setString(message);
+
+    Alert.alert('Copied!', 'Product details have been copied to clipboard', [
+      {text: 'OK'},
+    ]);
   };
 
   // Show sharing options
   const showSharingOptions = () => {
-    Alert.alert('Share Product', 'Choose how you want to share this product', [
-      {text: 'Share', onPress: handleShare},
-      {text: 'Cancel', style: 'cancel'},
-    ]);
+    const options =
+      Platform.OS === 'ios'
+        ? [
+            {text: 'Share', onPress: handleShare},
+            {text: 'Copy Link', onPress: handleCopyLink},
+            {text: 'Cancel', style: 'cancel'},
+          ]
+        : [
+            {text: 'Copy Link', onPress: handleCopyLink},
+            {text: 'Cancel', style: 'cancel'},
+            {text: 'Share', onPress: handleShare},
+          ];
+
+    Alert.alert(
+      'Share Product',
+      'Choose how you want to share this product',
+      options,
+    );
   };
 
   const styles = StyleSheet.create({
@@ -156,22 +190,17 @@ export const QuickShareBar: React.FC<ProductSharingProps> = ({
         product.title
       } - $${product.price.toFixed(2)}`;
 
-      const shareOptions = {
-        title: product.title,
+      const result = await RNShare.share({
         message: message,
-        failOnCancel: false,
-      };
+        title: product.title,
+      });
 
-      const result = await Share.open(shareOptions);
-
-      if (result.success) {
+      if (result.action === RNShare.sharedAction) {
         onShareComplete?.();
       }
     } catch (error: any) {
-      if (error.message !== 'User did not share') {
-        console.error('Share error:', error);
-        Alert.alert('Error', 'Failed to share product');
-      }
+      console.error('Share error:', error);
+      Alert.alert('Error', 'Failed to share product');
     }
   };
 
@@ -206,10 +235,10 @@ export const QuickShareBar: React.FC<ProductSharingProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Share this product</Text>
+      <Text style={styles.title}>Love this product? Share it!</Text>
       <TouchableOpacity style={styles.shareButton} onPress={handleQuickShare}>
         <Icon name="share-variant" size={20} color="#FFFFFF" />
-        <Text style={styles.shareButtonText}>Share Product</Text>
+        <Text style={styles.shareButtonText}>Quick Share</Text>
       </TouchableOpacity>
     </View>
   );
