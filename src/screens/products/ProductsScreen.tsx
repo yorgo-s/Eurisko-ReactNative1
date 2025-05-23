@@ -39,6 +39,10 @@ const ProductsScreen = () => {
   // Determine number of columns based on orientation
   const numColumns = isLandscape ? 4 : 2;
 
+  // State to manage sorting options
+  const [sortBy, setSortBy] = useState<'price' | 'createdAt' | undefined>();
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   // Infinite query for products
   const {
     data: productsData,
@@ -49,11 +53,13 @@ const ProductsScreen = () => {
     error: productsError,
     refetch: refetchProducts,
   } = useInfiniteQuery({
-    queryKey: ['products'],
+    queryKey: ['products', {sortBy, order: sortOrder}],
     queryFn: async ({pageParam}) => {
       const response = await productsApi.getProducts({
         page: pageParam,
-        limit: isLandscape ? 8 : 6, // Fetch more in landscape mode
+        limit: isLandscape ? 8 : 6,
+        sortBy: sortBy,
+        order: sortOrder, // Add sorting parameters
       });
       return response;
     },
