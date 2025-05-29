@@ -2,16 +2,24 @@
 import {Platform} from 'react-native';
 import Config from 'react-native-config';
 
-// Replace with your actual Google Maps API Key
+// Get Google Maps API Key from environment
 export const GOOGLE_MAPS_API_KEY = Config.GOOGLE_MAPS_API_KEY;
 
-// Lebanon default coordinates
+// Default location from environment or fallback to Lebanon
 export const DEFAULT_LOCATION = {
-  latitude: 33.8547,
-  longitude: 35.8623,
+  latitude: parseFloat(Config.DEFAULT_LATITUDE || '33.8547'),
+  longitude: parseFloat(Config.DEFAULT_LONGITUDE || '35.8623'),
   latitudeDelta: 0.0922,
   longitudeDelta: 0.0421,
 };
+
+// Log configuration in development
+if (Config.DEBUG_MODE === 'true' && __DEV__) {
+  console.log('🗺️ Maps Configuration:', {
+    hasApiKey: !!GOOGLE_MAPS_API_KEY,
+    defaultLocation: DEFAULT_LOCATION,
+  });
+}
 
 // Common Lebanese cities
 export const LEBANESE_CITIES = [
@@ -195,11 +203,16 @@ export const openInGoogleMapsWeb = (
   return `https://www.google.com/maps/search/?${params.toString()}`;
 };
 
-// Geocoding utilities (if you want to add reverse geocoding)
+// Geocoding utilities
 export const reverseGeocode = async (
   latitude: number,
   longitude: number,
 ): Promise<string> => {
+  if (!GOOGLE_MAPS_API_KEY) {
+    console.warn('⚠️ Google Maps API key not configured');
+    return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+  }
+
   try {
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`,
@@ -220,6 +233,11 @@ export const reverseGeocode = async (
 export const geocode = async (
   address: string,
 ): Promise<{latitude: number; longitude: number} | null> => {
+  if (!GOOGLE_MAPS_API_KEY) {
+    console.warn('⚠️ Google Maps API key not configured');
+    return null;
+  }
+
   try {
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(

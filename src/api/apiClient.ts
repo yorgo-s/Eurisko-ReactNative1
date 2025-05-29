@@ -2,9 +2,20 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Config from 'react-native-config';
 
-// Create a base axios instance
+// Log configuration on app start (development only)
+if (Config.DEBUG_MODE === 'true' && __DEV__) {
+  console.log('🔧 API Configuration:', {
+    baseURL: Config.API_BASE_URL,
+    timeout: Config.API_TIMEOUT,
+    environment: Config.NODE_ENV,
+    debug: Config.DEBUG_MODE,
+  });
+}
+
+// Create a base axios instance with environment configuration
 const apiClient = axios.create({
-  baseURL: 'https://backend-practice.eurisko.me', // Replace with your actual API URL
+  baseURL: Config.API_BASE_URL || 'https://backend-practice.eurisko.me',
+  timeout: parseInt(Config.API_TIMEOUT || '30000', 10),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -20,18 +31,51 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // Add debug logging in development
+    if (Config.DEBUG_MODE === 'true' && __DEV__) {
+      console.log('🔗 API Request:', {
+        method: config.method?.toUpperCase(),
+        url: `${config.baseURL}${config.url}`,
+        headers: config.headers,
+        data: config.data,
+      });
+    }
+
     return config;
   },
   error => {
+    if (Config.DEBUG_MODE === 'true' && __DEV__) {
+      console.error('❌ Request Error:', error);
+    }
     return Promise.reject(error);
   },
 );
 
 // Add response interceptor to handle refresh token
 apiClient.interceptors.response.use(
-  response => response,
+  response => {
+    // Add debug logging in development
+    if (Config.DEBUG_MODE === 'true' && __DEV__) {
+      console.log('✅ API Response:', {
+        status: response.status,
+        url: response.config.url,
+        data: response.data,
+      });
+    }
+    return response;
+  },
   async error => {
     const originalRequest = error.config;
+
+    // Add debug logging in development
+    if (Config.DEBUG_MODE === 'true' && __DEV__) {
+      console.error('❌ API Error:', {
+        status: error.response?.status,
+        url: error.config?.url,
+        message: error.message,
+        data: error.response?.data,
+      });
+    }
 
     // If the error is 401 (Unauthorized) and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -48,10 +92,10 @@ apiClient.interceptors.response.use(
 
         // Call refresh token endpoint
         const response = await axios.post(
-          `${Config.API_BASE_URL}/auth/refresh-token`,
+          `${Config.API_BASE_URL}/api/auth/refresh-token`,
           {
             refreshToken,
-            token_expires_in: '1y', // or whatever duration you want
+            token_expires_in: Config.ACCESS_TOKEN_EXPIRES_IN || '1y',
           },
         );
 
@@ -78,6 +122,11 @@ apiClient.interceptors.response.use(
         // If refresh fails, redirect to login
         await AsyncStorage.removeItem('@auth_token');
         await AsyncStorage.removeItem('@refresh_token');
+
+        if (Config.DEBUG_MODE === 'true' && __DEV__) {
+          console.error('❌ Token Refresh Failed:', refreshError);
+        }
+
         return Promise.reject(refreshError);
       }
     }
