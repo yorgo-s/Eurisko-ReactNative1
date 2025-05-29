@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Config from 'react-native-config';
 
 // Create a base axios instance
 const apiClient = axios.create({
@@ -47,7 +48,7 @@ apiClient.interceptors.response.use(
 
         // Call refresh token endpoint
         const response = await axios.post(
-          'YOUR_API_BASE_URL/api/auth/refresh-token',
+          `${Config.API_BASE_URL}/auth/refresh-token`,
           {
             refreshToken,
             token_expires_in: '1y', // or whatever duration you want

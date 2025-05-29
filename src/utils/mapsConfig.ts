@@ -1,8 +1,9 @@
 // src/utils/mapsConfig.ts
 import {Platform} from 'react-native';
+import Config from 'react-native-config';
 
 // Replace with your actual Google Maps API Key
-export const GOOGLE_MAPS_API_KEY = 'AIzaSyCJ-N7-0fl-3ykTZf6TDN94sciPHPM5MEQ';
+export const GOOGLE_MAPS_API_KEY = Config.GOOGLE_MAPS_API_KEY;
 
 // Lebanon default coordinates
 export const DEFAULT_LOCATION = {

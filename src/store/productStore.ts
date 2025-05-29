@@ -1,6 +1,7 @@
 // src/store/productStore.ts
 import {create} from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Config from 'react-native-config';
 
 export interface Product {
   _id: string;

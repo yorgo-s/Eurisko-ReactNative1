@@ -1,3 +1,5 @@
+import Config from 'react-native-config';
+
 export const getFullImageUrl = (relativeUrl: string | undefined): string => {
   if (!relativeUrl) {
     return ''; // Return empty string or a placeholder image URL if relativeUrl is undefined
