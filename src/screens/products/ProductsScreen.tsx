@@ -1,6 +1,3 @@
-// src/screens/products/ProductsScreen.tsx
-// Fixed pull-to-refresh implementation
-
 import React, {useContext, useState, useCallback, useMemo} from 'react';
 import {
   View,
@@ -26,6 +23,10 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import {
+  ProductListSkeleton,
+  SearchResultsSkeleton,
+} from '../../components/common/CustomSkeletonLoader';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -304,6 +305,30 @@ const ProductsScreen = () => {
     }
   };
 
+  // NEW: Render loading content based on search state
+  const renderLoadingContent = () => {
+    if (isSearching && isSearchLoading) {
+      return (
+        <View style={styles.skeletonContainer}>
+          <SearchResultsSkeleton itemCount={5} />
+        </View>
+      );
+    }
+
+    if (!isSearching && isLoadingProducts && displayedProducts.length === 0) {
+      return (
+        <View style={styles.skeletonContainer}>
+          <ProductListSkeleton
+            numColumns={numColumns}
+            itemCount={numColumns === 2 ? 6 : 8}
+          />
+        </View>
+      );
+    }
+
+    return null;
+  };
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -478,6 +503,11 @@ const ProductsScreen = () => {
       paddingHorizontal: 16,
       paddingVertical: 8,
     },
+    // NEW: Skeleton container styles
+    skeletonContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
   });
 
   // Determine loading state
@@ -591,70 +621,69 @@ const ProductsScreen = () => {
         </Text>
       )}
 
-      {isLoading && displayedProducts.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.emptyText, {marginTop: 16}]}>
-            {isSearching ? 'Searching all products...' : 'Loading products...'}
-          </Text>
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Error loading products</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => handleRefresh()}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : displayedProducts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon
-            name={isSearching ? 'magnify-close' : 'package-variant'}
-            size={48}
-            color={isDarkMode ? '#666666' : '#CCCCCC'}
-          />
-          <Text style={[styles.emptyText, {marginTop: 16}]}>
-            {isSearching
-              ? `No products found matching "${debouncedSearch}"`
-              : 'No products available'}
-          </Text>
-          {isSearching && (
+      {/* NEW: Show skeleton loading instead of spinner */}
+      {renderLoadingContent()}
+
+      {/* Show content when not loading or when we have data */}
+      {!isLoading || displayedProducts.length > 0 ? (
+        error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Error loading products</Text>
             <TouchableOpacity
-              style={[styles.retryButton, {marginTop: 16}]}
-              onPress={handleClearSearch}>
-              <Text style={styles.retryButtonText}>Clear Search</Text>
+              style={styles.retryButton}
+              onPress={() => handleRefresh()}>
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        <FlatList
-          data={displayedProducts}
-          keyExtractor={item => item._id}
-          renderItem={({item}) => (
-            <ProductCard
-              product={item}
-              onPress={() => handleProductPress(item)}
-              numColumns={numColumns}
+          </View>
+        ) : displayedProducts.length === 0 && !isLoading ? (
+          <View style={styles.emptyContainer}>
+            <Icon
+              name={isSearching ? 'magnify-close' : 'package-variant'}
+              size={48}
+              color={isDarkMode ? '#666666' : '#CCCCCC'}
             />
-          )}
-          key={numColumns}
-          numColumns={numColumns}
-          contentContainerStyle={styles.list}
-          testID="products-list"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-        />
-      )}
+            <Text style={[styles.emptyText, {marginTop: 16}]}>
+              {isSearching
+                ? `No products found matching "${debouncedSearch}"`
+                : 'No products available'}
+            </Text>
+            {isSearching && (
+              <TouchableOpacity
+                style={[styles.retryButton, {marginTop: 16}]}
+                onPress={handleClearSearch}>
+                <Text style={styles.retryButtonText}>Clear Search</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            data={displayedProducts}
+            keyExtractor={item => item._id}
+            renderItem={({item}) => (
+              <ProductCard
+                product={item}
+                onPress={() => handleProductPress(item)}
+                numColumns={numColumns}
+              />
+            )}
+            key={numColumns}
+            numColumns={numColumns}
+            contentContainerStyle={styles.list}
+            testID="products-list"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
+          />
+        )
+      ) : null}
 
       <TouchableOpacity
         style={styles.addButton}
