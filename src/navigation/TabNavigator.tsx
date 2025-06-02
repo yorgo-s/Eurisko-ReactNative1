@@ -4,6 +4,7 @@ import {StyleSheet} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import ProductsNavigator from './ProductsNavigator';
+import CartNavigator from './CartNavigator';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import {ThemeContext} from '../context/ThemeContext';
 import CartTabIcon from '../components/cart/CartTabIcon';
@@ -39,6 +40,16 @@ const TabNavigator = () => {
           tabBarLabel: 'Products',
           tabBarIcon: ({color, size}) => (
             <Icon name="shopping" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="CartTab"
+        component={CartNavigator}
+        options={{
+          tabBarLabel: 'Cart',
+          tabBarIcon: ({color, size}) => (
+            <CartTabIcon color={color} size={size} />
           ),
         }}
       />

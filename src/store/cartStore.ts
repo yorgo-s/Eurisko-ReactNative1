@@ -23,6 +23,13 @@ interface CartState {
   clearCart: () => void;
   getCartItem: (productId: string) => CartItem | undefined;
   isInCart: (productId: string) => boolean;
+  getCartSummary: () => {
+    itemCount: number;
+    totalQuantity: number;
+    totalPrice: number;
+    averageItemPrice: number;
+  };
+  getRecentItems: (limit?: number) => CartItem[];
 }
 
 export const useCartStore = create<CartState>()(
@@ -141,6 +148,34 @@ export const useCartStore = create<CartState>()(
 
       isInCart: (productId: string) => {
         return get().items.some(item => item.product._id === productId);
+      },
+
+      // Additional utility functions
+      getCartSummary: () => {
+        const items = get().items;
+        return {
+          itemCount: items.length,
+          totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+          totalPrice: items.reduce(
+            (sum, item) => sum + item.product.price * item.quantity,
+            0,
+          ),
+          averageItemPrice:
+            items.length > 0
+              ? items.reduce((sum, item) => sum + item.product.price, 0) /
+                items.length
+              : 0,
+        };
+      },
+
+      // Get items sorted by most recently added
+      getRecentItems: (limit = 5) => {
+        return get()
+          .items.sort(
+            (a, b) =>
+              new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+          )
+          .slice(0, limit);
       },
     }),
     {

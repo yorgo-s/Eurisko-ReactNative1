@@ -1,4 +1,4 @@
-import React, {useContext} from 'react';
+import React, {useContext, useState} from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -10,6 +10,7 @@ import {ThemeContext} from '../../context/ThemeContext';
 import {useCartStore} from '../../store/cartStore';
 import {Product} from '../../api/products';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import CartToast from './CartToast';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -17,6 +18,7 @@ interface AddToCartButtonProps {
   style?: any;
   onAddToCart?: () => void;
   disabled?: boolean;
+  showToast?: boolean;
 }
 
 const AddToCartButton: React.FC<AddToCartButtonProps> = ({
@@ -25,20 +27,33 @@ const AddToCartButton: React.FC<AddToCartButtonProps> = ({
   style,
   onAddToCart,
   disabled = false,
+  showToast = true,
 }) => {
   const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
   const {addToCart, isInCart, getCartItem, updateQuantity} = useCartStore();
 
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
   const isProductInCart = isInCart(product._id);
   const cartItem = getCartItem(product._id);
+
+  const showToastMessage = (message: string) => {
+    if (showToast) {
+      setToastMessage(message);
+      setToastVisible(true);
+    }
+  };
 
   const handleAddToCart = () => {
     if (isProductInCart && cartItem) {
       // If already in cart, increment quantity
       updateQuantity(product._id, cartItem.quantity + 1);
+      showToastMessage(`Updated quantity to ${cartItem.quantity + 1}`);
     } else {
       // Add new item to cart
       addToCart(product, 1);
+      showToastMessage(`${product.title} added to cart!`);
     }
     onAddToCart?.();
   };
@@ -120,28 +135,37 @@ const AddToCartButton: React.FC<AddToCartButtonProps> = ({
   }
 
   return (
-    <TouchableOpacity
-      style={[styles.button, isProductInCart && styles.buttonInCart, style]}
-      onPress={handleAddToCart}
-      activeOpacity={0.8}
-      testID="add-to-cart-button">
-      <Icon
-        name={isProductInCart ? 'cart-check' : 'cart-plus'}
-        size={sizeStyles.iconSize}
-        color="#FFFFFF"
-      />
+    <>
+      <TouchableOpacity
+        style={[styles.button, isProductInCart && styles.buttonInCart, style]}
+        onPress={handleAddToCart}
+        activeOpacity={0.8}
+        testID="add-to-cart-button">
+        <Icon
+          name={isProductInCart ? 'cart-check' : 'cart-plus'}
+          size={sizeStyles.iconSize}
+          color="#FFFFFF"
+        />
 
-      {isProductInCart && cartItem ? (
-        <View style={styles.quantityContainer}>
-          <Text style={styles.buttonText}>In Cart</Text>
-          <View style={styles.quantityBadge}>
-            <Text style={styles.quantityText}>{cartItem.quantity}</Text>
+        {isProductInCart && cartItem ? (
+          <View style={styles.quantityContainer}>
+            <Text style={styles.buttonText}>In Cart</Text>
+            <View style={styles.quantityBadge}>
+              <Text style={styles.quantityText}>{cartItem.quantity}</Text>
+            </View>
           </View>
-        </View>
-      ) : (
-        <Text style={styles.buttonText}>Add to Cart</Text>
-      )}
-    </TouchableOpacity>
+        ) : (
+          <Text style={styles.buttonText}>Add to Cart</Text>
+        )}
+      </TouchableOpacity>
+
+      <CartToast
+        visible={toastVisible}
+        message={toastMessage}
+        type="success"
+        onHide={() => setToastVisible(false)}
+      />
+    </>
   );
 };
 
