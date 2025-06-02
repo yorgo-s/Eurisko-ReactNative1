@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from '../../api/products';
+import AddToCartButton from '../cart/AddToCartButton';
 
 type ProductCardProps = {
   product: Product;
@@ -69,39 +70,53 @@ const ProductCard = ({product, onPress, numColumns}: ProductCardProps) => {
     price: {
       ...getFontStyle('bold', 16),
       color: colors.primary,
+      marginBottom: 8,
+    },
+    buttonContainer: {
+      marginTop: 4,
     },
   });
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={onPress}
-      activeOpacity={0.8}
-      testID={`product-card-${product._id}`}>
-      <View style={styles.imageContainer}>
-        {product.images && product.images.length > 0 ? (
-          <Image
-            source={{uri: getImageUrl(product.images[0]?.url)}}
-            style={styles.image}
-            testID={`product-image-${product._id}`}
-          />
-        ) : (
-          <View style={[styles.image, {backgroundColor: colors.card}]} />
-        )}
+    <View style={styles.container}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        testID={`product-card-${product._id}`}>
+        <View style={styles.imageContainer}>
+          {product.images && product.images.length > 0 ? (
+            <Image
+              source={{uri: getImageUrl(product.images[0]?.url)}}
+              style={styles.image}
+              testID={`product-image-${product._id}`}
+            />
+          ) : (
+            <View style={[styles.image, {backgroundColor: colors.card}]} />
+          )}
+        </View>
+        <View style={styles.contentContainer}>
+          <Text
+            style={styles.title}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            testID={`product-title-${product._id}`}>
+            {product.title}
+          </Text>
+          <Text style={styles.price} testID={`product-price-${product._id}`}>
+            ${product.price.toFixed(2)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* Add to Cart Button */}
+      <View style={styles.buttonContainer}>
+        <AddToCartButton
+          product={product}
+          size="small"
+          style={{margin: 12, marginTop: 0}}
+        />
       </View>
-      <View style={styles.contentContainer}>
-        <Text
-          style={styles.title}
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          testID={`product-title-${product._id}`}>
-          {product.title}
-        </Text>
-        <Text style={styles.price} testID={`product-price-${product._id}`}>
-          ${product.price.toFixed(2)}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 

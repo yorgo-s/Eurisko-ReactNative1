@@ -32,6 +32,7 @@ import ProductLocationMap from '../../components/products/ProductLocationMap';
 import ProductSharing from '../../components/products/ProductSharing';
 import RNFS from 'react-native-fs';
 import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import AddToCartButton from '../../components/cart/AddToCartButton';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -693,6 +694,42 @@ const ProductDetailsScreen = () => {
       color: '#FFFFFF',
       marginLeft: 8,
     },
+    cartContainer: {
+      backgroundColor: isDarkMode ? colors.card : '#F8F9FA',
+      borderRadius: 12,
+      padding: 16,
+    },
+    cartHeader: {
+      marginBottom: 16,
+    },
+    priceContainer: {
+      alignItems: 'center',
+    },
+    cartPrice: {
+      ...getFontStyle('bold', 28),
+      color: colors.primary,
+      marginBottom: 4,
+    },
+    cartPriceLabel: {
+      ...getFontStyle('regular', 14),
+      color: isDarkMode ? '#AAAAAA' : '#666666',
+    },
+    cartActions: {
+      marginBottom: 12,
+    },
+    cartInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    cartInfoText: {
+      ...getFontStyle('regular', 12),
+      color: colors.primary,
+      marginLeft: 8,
+    },
   });
 
   // Display loading state
@@ -854,6 +891,44 @@ const ProductDetailsScreen = () => {
             </View>
 
             <View style={styles.divider} />
+
+            {/* Add to Cart Section (for non-owners) */}
+            {!isOwner && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Purchase</Text>
+                <View style={[styles.cartContainer, styles.cardShadow]}>
+                  <View style={styles.cartHeader}>
+                    <View style={styles.priceContainer}>
+                      <Text style={styles.cartPrice}>
+                        ${product.price.toFixed(2)}
+                      </Text>
+                      <Text style={styles.cartPriceLabel}>
+                        Free shipping available
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cartActions}>
+                    <AddToCartButton
+                      product={product}
+                      size="large"
+                      style={{flex: 1}}
+                    />
+                  </View>
+
+                  <View style={styles.cartInfo}>
+                    <Icon
+                      name="shield-check"
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.cartInfoText}>
+                      Secure checkout • 30-day return policy
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* Enhanced Location Map Section */}
             {product.location && (

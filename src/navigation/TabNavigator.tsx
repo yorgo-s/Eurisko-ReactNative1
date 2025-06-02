@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import ProductsNavigator from './ProductsNavigator';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import {ThemeContext} from '../context/ThemeContext';
+import CartTabIcon from '../components/cart/CartTabIcon';
 
 const Tab = createBottomTabNavigator();
 
