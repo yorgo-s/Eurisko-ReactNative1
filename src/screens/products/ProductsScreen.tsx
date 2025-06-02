@@ -1,4 +1,11 @@
-import React, {useContext, useState, useCallback, useMemo} from 'react';
+import React, {
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+} from 'react';
 import {
   View,
   Text,
@@ -10,6 +17,7 @@ import {
   ActivityIndicator,
   TextInput,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
@@ -27,6 +35,15 @@ import {
   ProductListSkeleton,
   SearchResultsSkeleton,
 } from '../../components/common/CustomSkeletonLoader';
+
+import AnimatedProductCard from '../components/products/AnimatedProductCard';
+import AnimatedFAB from '../components/common/AnimatedFAB';
+import LoadingAnimation from '../components/common/LoadingAnimation';
+import {
+  fadeIn,
+  staggerAnimation,
+  slideFromBottom,
+} from '../../utils/animationUtils';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -205,51 +222,84 @@ const ProductsScreen = () => {
 
   // Main screen content with header and search bar
   const renderMainContent = () => {
+    const headerContent = (
+      <>
+        <Animated.Text
+          style={[
+            styles.title,
+            {
+              opacity: fadeAnim,
+              transform: [{translateY: slideAnim}],
+            },
+          ]}>
+          All Products
+        </Animated.Text>
+
+        <Animated.View
+          style={[
+            styles.searchBarContainer,
+            {
+              opacity: searchBarAnim,
+              transform: [
+                {
+                  translateY: searchBarAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}>
+          <Icon
+            name="magnify"
+            size={20}
+            color={colors.text}
+            style={{marginRight: 8}}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+            value={searchInput}
+            onChangeText={setSearchInput}
+            testID="search-input"
+          />
+          {searchInput ? (
+            <TouchableOpacity
+              onPress={handleClearSearch}
+              style={styles.searchButton}>
+              <Icon name="close" size={20} color={colors.text} />
+            </TouchableOpacity>
+          ) : null}
+        </Animated.View>
+      </>
+    );
+
     if (isLandscape) {
       return (
         <View style={styles.headerLandscape}>
-          <Text
-            style={[styles.title, {flex: 0, marginBottom: 0, marginRight: 16}]}>
-            All Products
-          </Text>
-
-          <View style={[styles.searchBarContainer, {flex: 1, marginBottom: 0}]}>
-            <Icon
-              name="magnify"
-              size={20}
-              color={colors.text}
-              style={{marginRight: 8}}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search products..."
-              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-              value={searchInput}
-              onChangeText={setSearchInput}
-              testID="search-input"
-            />
-            {searchInput ? (
-              <TouchableOpacity
-                onPress={handleClearSearch}
-                style={styles.searchButton}>
-                <Icon name="close" size={20} color={colors.text} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setShowSortMenu(!showSortMenu)}
-            style={{marginLeft: 12}}>
-            <Icon name="sort" size={24} color={colors.text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={toggleTheme} style={{marginLeft: 12}}>
-            <Icon
-              name={isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'}
-              size={24}
-              color={colors.text}
-            />
-          </TouchableOpacity>
+          {headerContent}
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              opacity: sortButtonAnim,
+              transform: [{scale: sortButtonAnim}],
+            }}>
+            <TouchableOpacity
+              onPress={() => setShowSortMenu(!showSortMenu)}
+              style={{marginLeft: 12}}>
+              <Icon name="sort" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={toggleTheme} style={{marginLeft: 12}}>
+              <Icon
+                name={
+                  isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'
+                }
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       );
     } else {
@@ -328,6 +378,39 @@ const ProductsScreen = () => {
 
     return null;
   };
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const searchBarAnim = useRef(new Animated.Value(0)).current;
+  const sortButtonAnim = useRef(new Animated.Value(0)).current;
+  const fabScale = useRef(new Animated.Value(0)).current;
+
+  // Entry animations
+  useEffect(() => {
+    Animated.parallel([
+      fadeIn(fadeAnim, 500),
+      slideFromBottom(slideAnim, 600),
+      Animated.timing(searchBarAnim, {
+        toValue: 1,
+        duration: 600,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(fabScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sortButtonAnim, {
+        toValue: 1,
+        duration: 600,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const styles = StyleSheet.create({
     container: {

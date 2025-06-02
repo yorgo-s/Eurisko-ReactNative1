@@ -6,6 +6,11 @@ import AddProductScreen from '../screens/products/AddProductScreen';
 import EditProductScreen from '../screens/products/EditProductScreen';
 import {ThemeContext} from '../context/ThemeContext';
 import ErrorBoundary from '../components/common/ErrorBoundary';
+import {
+  slideFromRightTransition,
+  scaleTransition,
+  slideFromBottomTransition,
+} from '../utils/screenTransitions';
 
 const Stack = createStackNavigator();
 
@@ -33,6 +38,8 @@ const ProductsNavigator = () => {
         headerTitleStyle: {
           ...getFontStyle('bold', 18),
         },
+        // Default smooth transition
+        ...slideFromRightTransition,
       }}>
       <Stack.Screen
         name="Products"
@@ -44,6 +51,7 @@ const ProductsNavigator = () => {
         component={SafeProductDetailsScreen}
         options={({route}: {route: {params?: {title?: string}}}) => ({
           title: route.params?.title || 'Product Details',
+          ...scaleTransition, // Special transition for product details
         })}
       />
       <Stack.Screen
@@ -51,6 +59,7 @@ const ProductsNavigator = () => {
         component={AddProductScreen}
         options={{
           headerShown: false,
+          ...slideFromBottomTransition, // Modal-style transition for adding products
         }}
       />
       <Stack.Screen
@@ -58,6 +67,7 @@ const ProductsNavigator = () => {
         component={EditProductScreen}
         options={{
           headerShown: false,
+          ...slideFromBottomTransition, // Modal-style transition for editing
         }}
       />
     </Stack.Navigator>
