@@ -361,14 +361,7 @@ const ProductsScreen = () => {
   );
 
   const renderLoadingContent = useCallback(() => {
-    if (isSearching && isSearchLoading) {
-      return (
-        <View style={styles.skeletonContainer}>
-          <SearchResultsSkeleton itemCount={5} />
-        </View>
-      );
-    }
-
+    // Only show skeleton for initial product loading (not search)
     if (!isSearching && isLoadingProducts && displayedProducts.length === 0) {
       return (
         <View style={styles.skeletonContainer}>
@@ -381,13 +374,7 @@ const ProductsScreen = () => {
     }
 
     return null;
-  }, [
-    isSearching,
-    isSearchLoading,
-    isLoadingProducts,
-    displayedProducts.length,
-    numColumns,
-  ]);
+  }, [isSearching, isLoadingProducts, displayedProducts.length, numColumns]);
 
   const keyExtractor = useCallback((item: Product) => item._id, []);
 
@@ -563,6 +550,17 @@ const ProductsScreen = () => {
     retryButtonText: {
       ...getFontStyle('semiBold', 16),
       color: '#FFFFFF',
+    },
+    searchLoadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 40,
+    },
+    searchLoadingText: {
+      ...getFontStyle('regular', 16),
+      color: colors.text,
+      marginTop: 16,
     },
   });
 
@@ -852,11 +850,20 @@ const ProductsScreen = () => {
         </Text>
       )}
 
-      {/* Show skeleton loading instead of spinner */}
+      {/* Show skeleton loading only for initial product loading */}
       {renderLoadingContent()}
 
+      {/* Show search loading indicator when searching */}
+      {isSearching && isSearchLoading && (
+        <View style={styles.searchLoadingContainer}>
+          <LoadingAnimation size="medium" type="dots" />
+          <Text style={styles.searchLoadingText}>Searching products...</Text>
+        </View>
+      )}
+
       {/* Show content when not loading or when we have data */}
-      {!isLoading || displayedProducts.length > 0 ? (
+      {(!isLoading || displayedProducts.length > 0) &&
+      !renderLoadingContent() ? (
         error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Error loading products</Text>
