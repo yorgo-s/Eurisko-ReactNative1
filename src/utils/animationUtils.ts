@@ -107,13 +107,13 @@ export const pulseAnimation = (
       Animated.timing(animatedValue, {
         toValue: maxValue,
         duration: duration / 2,
-        easing: Easing.inOut(Easing.sine),
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
       Animated.timing(animatedValue, {
         toValue: minValue,
         duration: duration / 2,
-        easing: Easing.inOut(Easing.sine),
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
     ]),
@@ -195,13 +195,13 @@ export const loadingDotsAnimation = (
       Animated.timing(animatedValue, {
         toValue: 1,
         duration: duration / 3,
-        easing: Easing.inOut(Easing.sine),
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
       Animated.timing(animatedValue, {
         toValue: 0.3,
         duration: duration / 3,
-        easing: Easing.inOut(Easing.sine),
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
     ]);
@@ -266,13 +266,13 @@ export const floatingAnimation = (
       Animated.timing(animatedValue, {
         toValue: maxValue,
         duration: duration / 2,
-        easing: Easing.inOut(Easing.sine),
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
       Animated.timing(animatedValue, {
         toValue: minValue,
         duration: duration / 2,
-        easing: Easing.inOut(Easing.sine),
+        easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       }),
     ]),

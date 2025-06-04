@@ -1,3 +1,4 @@
+// src/screens/products/ProductsScreen.tsx
 import React, {
   useContext,
   useState,
@@ -18,10 +19,11 @@ import {
   TextInput,
   RefreshControl,
   Animated,
+  Easing,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {ThemeContext} from '../../context/ThemeContext';
-import ProductCard from '../../components/products/ProductCard';
+import AnimatedProductCard from '../../components/products/AnimatedProductCard';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Product, productsApi} from '../../api/products';
@@ -35,15 +37,7 @@ import {
   ProductListSkeleton,
   SearchResultsSkeleton,
 } from '../../components/common/CustomSkeletonLoader';
-
-import AnimatedProductCard from '../components/products/AnimatedProductCard';
-import AnimatedFAB from '../components/common/AnimatedFAB';
-import LoadingAnimation from '../components/common/LoadingAnimation';
-import {
-  fadeIn,
-  staggerAnimation,
-  slideFromBottom,
-} from '../../utils/animationUtils';
+import LoadingAnimation from '../../components/common/LoadingAnimation';
 
 const ProductsScreen = () => {
   const navigation = useNavigation();
@@ -56,6 +50,19 @@ const ProductsScreen = () => {
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 500);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Animation values - keeping your original ones and adding new ones
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const searchBarAnim = useRef(new Animated.Value(0)).current;
+  const sortButtonAnim = useRef(new Animated.Value(0)).current;
+  const fabScale = useRef(new Animated.Value(0)).current;
+
+  // Additional animations for enhanced UX
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const searchBarScale = useRef(new Animated.Value(1)).current;
+  const sortMenuScale = useRef(new Animated.Value(0)).current;
+  const listOpacity = useRef(new Animated.Value(1)).current;
 
   // Determine if we're in landscape orientation
   const isLandscape = windowWidth > windowHeight;
@@ -71,326 +78,19 @@ const ProductsScreen = () => {
   // Check if we're searching
   const isSearching = debouncedSearch.trim().length > 0;
 
-  // Query for search - fetches ALL products when searching
-  const {
-    data: searchData,
-    isLoading: isSearchLoading,
-    error: searchError,
-    refetch: refetchSearch,
-  } = useQuery({
-    queryKey: ['searchProducts', debouncedSearch, sortBy, sortOrder],
-    queryFn: async () => {
-      const allProductsData = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const response = await productsApi.getProducts({
-          page,
-          limit: 50,
-          sortBy,
-          order: sortOrder,
-        });
-
-        if (response.data && response.data.length > 0) {
-          allProductsData.push(...response.data);
-          hasMore = response.pagination?.hasNextPage || false;
-          page++;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      const searchTerm = debouncedSearch.toLowerCase().trim();
-      const filtered = allProductsData.filter(product => {
-        if (product.title.toLowerCase().includes(searchTerm)) return true;
-        if (product.description.toLowerCase().includes(searchTerm)) return true;
-
-        const priceStr = product.price.toString();
-        if (priceStr.includes(searchTerm)) return true;
-
-        const searchNumber = parseFloat(searchTerm);
-        if (!isNaN(searchNumber)) {
-          const priceDiff = Math.abs(product.price - searchNumber);
-          if (priceDiff <= searchNumber * 0.1) return true;
-        }
-
-        return false;
-      });
-
-      return filtered;
-    },
-    enabled: isSearching,
-    staleTime: 30000,
-  });
-
-  // Infinite query for normal browsing (when not searching)
-  const {
-    data: productsData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: isLoadingProducts,
-    error: productsError,
-    refetch: refetchProducts,
-  } = useInfiniteQuery({
-    queryKey: ['products', {sortBy, order: sortOrder}],
-    queryFn: async ({pageParam}) => {
-      const response = await productsApi.getProducts({
-        page: pageParam,
-        limit: isLandscape ? 8 : 6,
-        sortBy: sortBy,
-        order: sortOrder,
-      });
-      return response;
-    },
-    initialPageParam: 1,
-    getNextPageParam: lastPage => {
-      if (lastPage.pagination?.hasNextPage) {
-        return lastPage.pagination.currentPage + 1;
-      }
-      return undefined;
-    },
-    enabled: !isSearching,
-  });
-
-  // Flatten the pages of products for display
-  const allProducts = useMemo(() => {
-    if (!productsData?.pages) return [];
-    return productsData.pages.flatMap(page => page.data || []);
-  }, [productsData]);
-
-  // Determine which products to display
-  const displayedProducts = isSearching ? searchData || [] : allProducts;
-
-  const handleProductPress = (product: Product) => {
-    navigation.navigate('ProductDetails', product);
-  };
-
-  const handleClearSearch = () => {
-    setSearchInput('');
-  };
-
-  const handleAddProduct = () => {
-    navigation.navigate('AddProduct');
-  };
-
-  // FIXED: Improved refresh handling
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      if (isSearching) {
-        // When searching, refetch search results
-        await refetchSearch();
-      } else {
-        // When not searching, invalidate and refetch products
-        await queryClient.invalidateQueries({queryKey: ['products']});
-        await refetchProducts();
-      }
-    } catch (error) {
-      console.error('Refresh error:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [isSearching, refetchSearch, refetchProducts, queryClient]);
-
-  // Handle loading more products on scroll (only when not searching)
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage && !isSearching) {
-      fetchNextPage();
-    }
-  };
-
-  // Handle sorting
-  const handleSort = (type: 'price' | 'createdAt', order: 'asc' | 'desc') => {
-    setSortBy(type);
-    setSortOrder(order);
-    setShowSortMenu(false);
-  };
-
-  // Footer component to show loading indicator when fetching more products
-  const renderFooter = () => {
-    if (!isFetchingNextPage || isSearching) return null;
-
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.footerText}>Loading more products...</Text>
-      </View>
-    );
-  };
-
-  // Main screen content with header and search bar
-  const renderMainContent = () => {
-    const headerContent = (
-      <>
-        <Animated.Text
-          style={[
-            styles.title,
-            {
-              opacity: fadeAnim,
-              transform: [{translateY: slideAnim}],
-            },
-          ]}>
-          All Products
-        </Animated.Text>
-
-        <Animated.View
-          style={[
-            styles.searchBarContainer,
-            {
-              opacity: searchBarAnim,
-              transform: [
-                {
-                  translateY: searchBarAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}>
-          <Icon
-            name="magnify"
-            size={20}
-            color={colors.text}
-            style={{marginRight: 8}}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products..."
-            placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-            value={searchInput}
-            onChangeText={setSearchInput}
-            testID="search-input"
-          />
-          {searchInput ? (
-            <TouchableOpacity
-              onPress={handleClearSearch}
-              style={styles.searchButton}>
-              <Icon name="close" size={20} color={colors.text} />
-            </TouchableOpacity>
-          ) : null}
-        </Animated.View>
-      </>
-    );
-
-    if (isLandscape) {
-      return (
-        <View style={styles.headerLandscape}>
-          {headerContent}
-          <Animated.View
-            style={{
-              flexDirection: 'row',
-              opacity: sortButtonAnim,
-              transform: [{scale: sortButtonAnim}],
-            }}>
-            <TouchableOpacity
-              onPress={() => setShowSortMenu(!showSortMenu)}
-              style={{marginLeft: 12}}>
-              <Icon name="sort" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={toggleTheme} style={{marginLeft: 12}}>
-              <Icon
-                name={
-                  isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'
-                }
-                size={24}
-                color={colors.text}
-              />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      );
-    } else {
-      return (
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <Text style={styles.title}>All Products</Text>
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                onPress={() => setShowSortMenu(!showSortMenu)}
-                style={styles.headerButton}>
-                <Icon name="sort" size={24} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={toggleTheme}
-                style={styles.headerButton}>
-                <Icon
-                  name={
-                    isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'
-                  }
-                  size={24}
-                  color={colors.text}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.searchBarContainer}>
-            <Icon
-              name="magnify"
-              size={20}
-              color={colors.text}
-              style={{marginRight: 8}}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search products..."
-              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
-              value={searchInput}
-              onChangeText={setSearchInput}
-              testID="search-input"
-            />
-            {searchInput ? (
-              <TouchableOpacity
-                onPress={handleClearSearch}
-                style={styles.searchButton}>
-                <Icon name="close" size={20} color={colors.text} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-      );
-    }
-  };
-
-  // NEW: Render loading content based on search state
-  const renderLoadingContent = () => {
-    if (isSearching && isSearchLoading) {
-      return (
-        <View style={styles.skeletonContainer}>
-          <SearchResultsSkeleton itemCount={5} />
-        </View>
-      );
-    }
-
-    if (!isSearching && isLoadingProducts && displayedProducts.length === 0) {
-      return (
-        <View style={styles.skeletonContainer}>
-          <ProductListSkeleton
-            numColumns={numColumns}
-            itemCount={numColumns === 2 ? 6 : 8}
-          />
-        </View>
-      );
-    }
-
-    return null;
-  };
-
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const searchBarAnim = useRef(new Animated.Value(0)).current;
-  const sortButtonAnim = useRef(new Animated.Value(0)).current;
-  const fabScale = useRef(new Animated.Value(0)).current;
-
-  // Entry animations
+  // Keep your original entry animations
   useEffect(() => {
     Animated.parallel([
-      fadeIn(fadeAnim, 500),
-      slideFromBottom(slideAnim, 600),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
       Animated.timing(searchBarAnim, {
         toValue: 1,
         duration: 600,
@@ -411,6 +111,285 @@ const ProductsScreen = () => {
       }),
     ]).start();
   }, []);
+
+  // Animation for sort menu
+  useEffect(() => {
+    Animated.spring(sortMenuScale, {
+      toValue: showSortMenu ? 1 : 0,
+      tension: 300,
+      friction: 20,
+      useNativeDriver: true,
+    }).start();
+  }, [showSortMenu]);
+
+  // Optimized query for search with useMemo
+  const searchQueryConfig = useMemo(
+    () => ({
+      queryKey: ['searchProducts', debouncedSearch, sortBy, sortOrder],
+      queryFn: async () => {
+        const allProductsData = [];
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+          const response = await productsApi.getProducts({
+            page,
+            limit: 50,
+            sortBy,
+            order: sortOrder,
+          });
+
+          if (response.data && response.data.length > 0) {
+            allProductsData.push(...response.data);
+            hasMore = response.pagination?.hasNextPage || false;
+            page++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        const searchTerm = debouncedSearch.toLowerCase().trim();
+        const filtered = allProductsData.filter(product => {
+          if (product.title.toLowerCase().includes(searchTerm)) return true;
+          if (product.description.toLowerCase().includes(searchTerm))
+            return true;
+
+          const priceStr = product.price.toString();
+          if (priceStr.includes(searchTerm)) return true;
+
+          const searchNumber = parseFloat(searchTerm);
+          if (!isNaN(searchNumber)) {
+            const priceDiff = Math.abs(product.price - searchNumber);
+            if (priceDiff <= searchNumber * 0.1) return true;
+          }
+
+          return false;
+        });
+
+        return filtered;
+      },
+      enabled: isSearching,
+      staleTime: 30000,
+    }),
+    [debouncedSearch, sortBy, sortOrder, isSearching],
+  );
+
+  // Query for search - fetches ALL products when searching
+  const {
+    data: searchData,
+    isLoading: isSearchLoading,
+    error: searchError,
+    refetch: refetchSearch,
+  } = useQuery(searchQueryConfig);
+
+  // Optimized infinite query config with useMemo
+  const infiniteQueryConfig = useMemo(
+    () => ({
+      queryKey: ['products', {sortBy, order: sortOrder}],
+      queryFn: async ({pageParam}: {pageParam: number}) => {
+        const response = await productsApi.getProducts({
+          page: pageParam,
+          limit: isLandscape ? 8 : 6,
+          sortBy: sortBy,
+          order: sortOrder,
+        });
+        return response;
+      },
+      initialPageParam: 1,
+      getNextPageParam: (lastPage: any) => {
+        if (lastPage.pagination?.hasNextPage) {
+          return lastPage.pagination.currentPage + 1;
+        }
+        return undefined;
+      },
+      enabled: !isSearching,
+    }),
+    [sortBy, sortOrder, isSearching, isLandscape],
+  );
+
+  // Infinite query for normal browsing (when not searching)
+  const {
+    data: productsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingProducts,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useInfiniteQuery(infiniteQueryConfig);
+
+  // Optimized products flattening with useMemo
+  const allProducts = useMemo(() => {
+    if (!productsData?.pages) return [];
+    return productsData.pages.flatMap(page => page.data || []);
+  }, [productsData]);
+
+  // Determine which products to display
+  const displayedProducts = isSearching ? searchData || [] : allProducts;
+
+  // Optimized handlers with useCallback
+  const handleProductPress = useCallback(
+    (product: Product) => {
+      // Animate list before navigation
+      Animated.timing(listOpacity, {
+        toValue: 0.7,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+
+      navigation.navigate('ProductDetails', product);
+
+      // Reset opacity after navigation
+      setTimeout(() => {
+        Animated.timing(listOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      }, 300);
+    },
+    [navigation, listOpacity],
+  );
+
+  const handleClearSearch = useCallback(() => {
+    // Animate search bar scale
+    Animated.sequence([
+      Animated.timing(searchBarScale, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchBarScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setSearchInput('');
+  }, [searchBarScale]);
+
+  const handleAddProduct = useCallback(() => {
+    navigation.navigate('AddProduct');
+  }, [navigation]);
+
+  // Optimized refresh handler with useCallback
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+
+    // Animate header during refresh
+    Animated.sequence([
+      Animated.timing(headerOpacity, {
+        toValue: 0.7,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    try {
+      if (isSearching) {
+        await refetchSearch();
+      } else {
+        await queryClient.invalidateQueries({queryKey: ['products']});
+        await refetchProducts();
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isSearching, refetchSearch, refetchProducts, queryClient, headerOpacity]);
+
+  // Optimized load more handler with useCallback
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage && !isSearching) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isSearching, fetchNextPage]);
+
+  // Optimized sort handler with useCallback
+  const handleSort = useCallback(
+    (type: 'price' | 'createdAt', order: 'asc' | 'desc') => {
+      setSortBy(type);
+      setSortOrder(order);
+      setShowSortMenu(false);
+
+      // Animate list transition
+      Animated.sequence([
+        Animated.timing(listOpacity, {
+          toValue: 0.5,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(listOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    },
+    [listOpacity],
+  );
+
+  // Optimized render functions with useCallback
+  const renderFooter = useCallback(() => {
+    if (!isFetchingNextPage || isSearching) return null;
+
+    return (
+      <View style={styles.footerLoader}>
+        <LoadingAnimation size="small" type="dots" />
+        <Text style={styles.footerText}>Loading more products...</Text>
+      </View>
+    );
+  }, [isFetchingNextPage, isSearching]);
+
+  const renderProduct = useCallback(
+    ({item, index}: {item: Product; index: number}) => (
+      <AnimatedProductCard
+        product={item}
+        onPress={() => handleProductPress(item)}
+        numColumns={numColumns}
+        index={index}
+      />
+    ),
+    [handleProductPress, numColumns],
+  );
+
+  const renderLoadingContent = useCallback(() => {
+    if (isSearching && isSearchLoading) {
+      return (
+        <View style={styles.skeletonContainer}>
+          <SearchResultsSkeleton itemCount={5} />
+        </View>
+      );
+    }
+
+    if (!isSearching && isLoadingProducts && displayedProducts.length === 0) {
+      return (
+        <View style={styles.skeletonContainer}>
+          <ProductListSkeleton
+            numColumns={numColumns}
+            itemCount={numColumns === 2 ? 6 : 8}
+          />
+        </View>
+      );
+    }
+
+    return null;
+  }, [
+    isSearching,
+    isSearchLoading,
+    isLoadingProducts,
+    displayedProducts.length,
+    numColumns,
+  ]);
+
+  const keyExtractor = useCallback((item: Product) => item._id, []);
 
   const styles = StyleSheet.create({
     container: {
@@ -465,32 +444,6 @@ const ProductsScreen = () => {
     },
     searchButton: {
       padding: 6,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    errorText: {
-      ...typography.body,
-      color: colors.error,
-      textAlign: 'center',
-      marginBottom: 16,
-    },
-    retryButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-    },
-    retryButtonText: {
-      ...getFontStyle('semiBold', 16),
-      color: '#FFFFFF',
     },
     list: {
       padding: 8,
@@ -586,16 +539,203 @@ const ProductsScreen = () => {
       paddingHorizontal: 16,
       paddingVertical: 8,
     },
-    // NEW: Skeleton container styles
     skeletonContainer: {
       flex: 1,
       backgroundColor: colors.background,
     },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorText: {
+      ...typography.body,
+      color: colors.error,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    retryButton: {
+      backgroundColor: colors.primary,
+      padding: 12,
+      borderRadius: 8,
+    },
+    retryButtonText: {
+      ...getFontStyle('semiBold', 16),
+      color: '#FFFFFF',
+    },
   });
 
-  // Determine loading state
   const isLoading = isSearching ? isSearchLoading : isLoadingProducts;
   const error = isSearching ? searchError : productsError;
+
+  // Your original main content render
+  const renderMainContent = () => {
+    const headerContent = (
+      <>
+        <Animated.Text
+          style={[
+            styles.title,
+            {
+              opacity: fadeAnim,
+              transform: [{translateY: slideAnim}],
+            },
+          ]}>
+          All Products
+        </Animated.Text>
+
+        <Animated.View
+          style={[
+            styles.searchBarContainer,
+            {
+              opacity: searchBarAnim,
+              transform: [
+                {
+                  translateY: searchBarAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+                {scale: searchBarScale},
+              ],
+            },
+          ]}>
+          <Icon
+            name="magnify"
+            size={20}
+            color={colors.text}
+            style={{marginRight: 8}}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+            value={searchInput}
+            onChangeText={setSearchInput}
+            testID="search-input"
+          />
+          {searchInput ? (
+            <TouchableOpacity
+              onPress={handleClearSearch}
+              style={styles.searchButton}>
+              <Icon name="close" size={20} color={colors.text} />
+            </TouchableOpacity>
+          ) : null}
+        </Animated.View>
+      </>
+    );
+
+    if (isLandscape) {
+      return (
+        <Animated.View
+          style={[styles.headerLandscape, {opacity: headerOpacity}]}>
+          {headerContent}
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              opacity: sortButtonAnim,
+              transform: [{scale: sortButtonAnim}],
+            }}>
+            <TouchableOpacity
+              onPress={() => setShowSortMenu(!showSortMenu)}
+              style={{marginLeft: 12}}>
+              <Icon name="sort" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={toggleTheme} style={{marginLeft: 12}}>
+              <Icon
+                name={
+                  isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'
+                }
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      );
+    } else {
+      return (
+        <Animated.View style={[styles.header, {opacity: headerOpacity}]}>
+          <View style={styles.headerTop}>
+            <Animated.Text
+              style={[
+                styles.title,
+                {
+                  opacity: fadeAnim,
+                  transform: [{translateY: slideAnim}],
+                },
+              ]}>
+              All Products
+            </Animated.Text>
+            <Animated.View
+              style={[
+                styles.headerActions,
+                {
+                  opacity: sortButtonAnim,
+                  transform: [{scale: sortButtonAnim}],
+                },
+              ]}>
+              <TouchableOpacity
+                onPress={() => setShowSortMenu(!showSortMenu)}
+                style={styles.headerButton}>
+                <Icon name="sort" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={toggleTheme}
+                style={styles.headerButton}>
+                <Icon
+                  name={
+                    isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'
+                  }
+                  size={24}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          <Animated.View
+            style={[
+              styles.searchBarContainer,
+              {
+                opacity: searchBarAnim,
+                transform: [
+                  {
+                    translateY: searchBarAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                  {scale: searchBarScale},
+                ],
+              },
+            ]}>
+            <Icon
+              name="magnify"
+              size={20}
+              color={colors.text}
+              style={{marginRight: 8}}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={isDarkMode ? '#888888' : '#888888'}
+              value={searchInput}
+              onChangeText={setSearchInput}
+              testID="search-input"
+            />
+            {searchInput ? (
+              <TouchableOpacity
+                onPress={handleClearSearch}
+                style={styles.searchButton}>
+                <Icon name="close" size={20} color={colors.text} />
+              </TouchableOpacity>
+            ) : null}
+          </Animated.View>
+        </Animated.View>
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -606,8 +746,16 @@ const ProductsScreen = () => {
 
       {renderMainContent()}
 
+      {/* Animated Sort Menu */}
       {showSortMenu && (
-        <View style={styles.sortMenu}>
+        <Animated.View
+          style={[
+            styles.sortMenu,
+            {
+              transform: [{scale: sortMenuScale}],
+              opacity: sortMenuScale,
+            },
+          ]}>
           <Text style={styles.sortHeader}>SORT BY PRICE</Text>
           <TouchableOpacity
             style={[
@@ -689,7 +837,7 @@ const ProductsScreen = () => {
               }
             />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       {isSearching && !isSearchLoading && (
@@ -704,7 +852,7 @@ const ProductsScreen = () => {
         </Text>
       )}
 
-      {/* NEW: Show skeleton loading instead of spinner */}
+      {/* Show skeleton loading instead of spinner */}
       {renderLoadingContent()}
 
       {/* Show content when not loading or when we have data */}
@@ -739,41 +887,50 @@ const ProductsScreen = () => {
             )}
           </View>
         ) : (
-          <FlatList
-            data={displayedProducts}
-            keyExtractor={item => item._id}
-            renderItem={({item}) => (
-              <ProductCard
-                product={item}
-                onPress={() => handleProductPress(item)}
-                numColumns={numColumns}
-              />
-            )}
-            key={numColumns}
-            numColumns={numColumns}
-            contentContainerStyle={styles.list}
-            testID="products-list"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-          />
+          <Animated.View style={{flex: 1, opacity: listOpacity}}>
+            <FlatList
+              data={displayedProducts}
+              keyExtractor={keyExtractor}
+              renderItem={renderProduct}
+              key={numColumns}
+              numColumns={numColumns}
+              contentContainerStyle={styles.list}
+              testID="products-list"
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              }
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={renderFooter}
+              // Performance optimizations
+              initialNumToRender={numColumns * 3}
+              maxToRenderPerBatch={numColumns * 2}
+              windowSize={10}
+              removeClippedSubviews={true}
+            />
+          </Animated.View>
         )
       ) : null}
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={handleAddProduct}
-        testID="add-product-button">
-        <Icon name="plus" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Keep the original FAB */}
+      <Animated.View
+        style={[
+          {
+            transform: [{scale: fabScale}],
+          },
+        ]}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleAddProduct}
+          testID="add-product-button">
+          <Icon name="plus" size={30} color="#FFFFFF" />
+        </TouchableOpacity>
+      </Animated.View>
     </SafeAreaView>
   );
 };

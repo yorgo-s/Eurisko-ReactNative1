@@ -1,13 +1,14 @@
 import React, {useContext, useRef, useEffect} from 'react';
-import {TouchableOpacity, StyleSheet, Animated, View} from 'react-native';
+import {
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  View,
+  Easing,
+} from 'react-native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {
-  floatingAnimation,
-  scaleAnimation,
-  buttonPressAnimation,
-} from '../../utils/animationUtils';
 
 interface AnimatedFABProps {
   onPress: () => void;
@@ -39,13 +40,68 @@ const AnimatedFAB: React.FC<AnimatedFABProps> = ({
   const rotationValue = useRef(new Animated.Value(0)).current;
   const shadowValue = useRef(new Animated.Value(8)).current;
 
-  // Button press animations
-  const {pressIn, pressOut} = buttonPressAnimation(scaleValue, 0.9, 150);
-
   // Start floating animation on mount
   useEffect(() => {
-    floatingAnimation(floatValue, -3, 3, 3000).start();
+    const floatingAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatValue, {
+          toValue: -3,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatValue, {
+          toValue: 3,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    floatingAnimation.start();
+
+    return () => floatingAnimation.stop();
   }, [floatValue]);
+
+  // Button press animations
+  const handlePressIn = () => {
+    Animated.timing(scaleValue, {
+      toValue: 0.9,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+
+    // Stop floating during press
+    floatValue.stopAnimation();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      tension: 200,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+
+    // Resume floating
+    const floatingAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatValue, {
+          toValue: -3,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatValue, {
+          toValue: 3,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    floatingAnimation.start();
+  };
 
   // Icon rotation animation on press
   const handlePress = () => {
@@ -73,18 +129,6 @@ const AnimatedFAB: React.FC<AnimatedFABProps> = ({
     ]).start();
 
     onPress();
-  };
-
-  const handlePressIn = () => {
-    pressIn();
-    // Reduce floating during press
-    floatValue.stopAnimation();
-  };
-
-  const handlePressOut = () => {
-    pressOut();
-    // Resume floating
-    floatingAnimation(floatValue, -3, 3, 3000).start();
   };
 
   const rotationInterpolate = rotationValue.interpolate({

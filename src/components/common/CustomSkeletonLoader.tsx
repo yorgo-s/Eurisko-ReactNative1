@@ -9,14 +9,14 @@ interface SkeletonProps {
   style?: any;
 }
 
-// Basic animated skeleton box
+// Basic animated skeleton box with theme support
 const SkeletonBox: React.FC<SkeletonProps> = ({
   width,
   height,
   borderRadius = 8,
   style,
 }) => {
-  const {isDarkMode} = useContext(ThemeContext);
+  const {isDarkMode, colors} = useContext(ThemeContext);
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -42,7 +42,7 @@ const SkeletonBox: React.FC<SkeletonProps> = ({
 
   const backgroundColor = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: isDarkMode ? ['#2A2A2A', '#3A3A3A'] : ['#E1E9EE', '#F2F8FC'],
+    outputRange: isDarkMode ? [colors.card, '#3A3A3A'] : ['#E1E9EE', '#F2F8FC'],
   });
 
   return (
@@ -60,10 +60,28 @@ const SkeletonBox: React.FC<SkeletonProps> = ({
   );
 };
 
-// Product Card Skeleton
+// Product Card Skeleton with theme support
 export const ProductCardSkeleton: React.FC<{width: number}> = ({width}) => {
+  const {colors} = useContext(ThemeContext);
+
+  const styles = StyleSheet.create({
+    cardContainer: {
+      width,
+      margin: 8,
+      borderRadius: 8,
+      overflow: 'hidden',
+      backgroundColor: colors.background,
+    },
+    cardContent: {
+      padding: 12,
+    },
+    cardSpacing: {
+      height: 8,
+    },
+  });
+
   return (
-    <View style={[styles.cardContainer, {width}]}>
+    <View style={styles.cardContainer}>
       <SkeletonBox width={width - 16} height={120} borderRadius={8} />
       <View style={styles.cardContent}>
         <SkeletonBox width={width - 32} height={20} borderRadius={4} />
@@ -76,15 +94,26 @@ export const ProductCardSkeleton: React.FC<{width: number}> = ({width}) => {
   );
 };
 
-// Product List Skeleton
+// Product List Skeleton with theme support
 export const ProductListSkeleton: React.FC<{
   numColumns?: number;
   itemCount?: number;
 }> = ({numColumns = 2, itemCount = 6}) => {
   const {width: windowWidth} = useWindowDimensions();
+  const {colors} = useContext(ThemeContext);
 
   // Calculate item width based on number of columns
   const itemWidth = (windowWidth - 16 * (numColumns + 1)) / numColumns;
+
+  const styles = StyleSheet.create({
+    listContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-around',
+      padding: 8,
+      backgroundColor: colors.background,
+    },
+  });
 
   return (
     <View style={styles.listContainer}>
@@ -95,9 +124,31 @@ export const ProductListSkeleton: React.FC<{
   );
 };
 
-// Product Details Skeleton
+// Product Details Skeleton with theme support
 export const ProductDetailsSkeleton: React.FC = () => {
   const {width: windowWidth, height: windowHeight} = useWindowDimensions();
+  const {colors} = useContext(ThemeContext);
+
+  const styles = StyleSheet.create({
+    detailsContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    detailsContent: {
+      padding: 16,
+    },
+    detailsSpacing: {
+      height: 16,
+    },
+    smallSpacing: {
+      height: 8,
+    },
+    buttonContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 24,
+    },
+  });
 
   return (
     <View style={styles.detailsContainer}>
@@ -151,10 +202,32 @@ export const ProductDetailsSkeleton: React.FC = () => {
   );
 };
 
-// Search Results Skeleton
+// Search Results Skeleton with theme support
 export const SearchResultsSkeleton: React.FC<{itemCount?: number}> = ({
   itemCount = 3,
 }) => {
+  const {colors} = useContext(ThemeContext);
+
+  const styles = StyleSheet.create({
+    searchContainer: {
+      padding: 16,
+      backgroundColor: colors.background,
+    },
+    searchItem: {
+      flexDirection: 'row',
+      marginBottom: 16,
+      alignItems: 'flex-start',
+      backgroundColor: colors.background,
+    },
+    searchItemContent: {
+      marginLeft: 12,
+      flex: 1,
+    },
+    smallSpacing: {
+      height: 8,
+    },
+  });
+
   return (
     <View style={styles.searchContainer}>
       {Array.from({length: itemCount}).map((_, index) => (
@@ -172,62 +245,6 @@ export const SearchResultsSkeleton: React.FC<{itemCount?: number}> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  // Product Card Skeleton Styles
-  cardContainer: {
-    margin: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  cardContent: {
-    padding: 12,
-  },
-  cardSpacing: {
-    height: 8,
-  },
-
-  // Product List Skeleton Styles
-  listContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    padding: 8,
-  },
-
-  // Product Details Skeleton Styles
-  detailsContainer: {
-    flex: 1,
-  },
-  detailsContent: {
-    padding: 16,
-  },
-  detailsSpacing: {
-    height: 16,
-  },
-  smallSpacing: {
-    height: 8,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-
-  // Search Results Skeleton Styles
-  searchContainer: {
-    padding: 16,
-  },
-  searchItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'flex-start',
-  },
-  searchItemContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-});
 
 export default {
   ProductCardSkeleton,
