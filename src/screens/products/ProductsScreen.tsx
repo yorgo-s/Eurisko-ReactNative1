@@ -818,7 +818,7 @@ const ProductsScreen = () => {
       {/* RESTORED FROM OLD: Proper loading and content rendering */}
       {isLoading && displayedProducts.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingAnimation size="medium" type="dots" />
           <Text style={[styles.emptyText, {marginTop: 16}]}>
             {isSearching ? 'Searching all products...' : 'Loading products...'}
           </Text>
