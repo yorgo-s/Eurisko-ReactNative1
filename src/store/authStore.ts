@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  tokenExpirationTime: number | null;
 
   // Actions
   login: (email: string, password: string) => Promise<boolean>;
@@ -27,7 +28,44 @@ interface AuthState {
     profileImage?: any;
   }) => Promise<boolean>;
   clearError: () => void;
+  checkTokenExpiration: () => Promise<boolean>;
+  refreshTokenIfNeeded: () => Promise<boolean>;
 }
+
+// Helper function to calculate token expiration time
+const calculateTokenExpiration = (expiresIn: string): number => {
+  const now = Date.now();
+
+  // Parse the expires_in string (e.g., "1h", "30m", "1y")
+  const match = expiresIn.match(/^(\d+)([mhdy])$/);
+  if (!match) {
+    // Default to 1 hour if format is invalid
+    return now + 60 * 60 * 1000;
+  }
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  let milliseconds = 0;
+  switch (unit) {
+    case 'm':
+      milliseconds = value * 60 * 1000;
+      break;
+    case 'h':
+      milliseconds = value * 60 * 60 * 1000;
+      break;
+    case 'd':
+      milliseconds = value * 24 * 60 * 60 * 1000;
+      break;
+    case 'y':
+      milliseconds = value * 365 * 24 * 60 * 60 * 1000;
+      break;
+    default:
+      milliseconds = 60 * 60 * 1000; // 1 hour default
+  }
+
+  return now + milliseconds;
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -36,17 +74,29 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isLoading: false,
       error: null,
+      tokenExpirationTime: null,
 
       login: async (email, password) => {
         try {
-          console.log('Attempting login with:', email, password);
+          console.log('Attempting login with:', email);
           set({isLoading: true, error: null});
 
-          const response = await authApi.login({email, password});
+          const response = await authApi.login({
+            email,
+            password,
+            token_expires_in: '1y', // Set a reasonable expiration time
+          });
           console.log('Login response:', response);
 
           if (response.success) {
-            console.log('Login successful, fetching profile...');
+            console.log(
+              'Login successful, storing tokens and fetching profile...',
+            );
+
+            // Calculate token expiration time
+            const expirationTime = calculateTokenExpiration('1y');
+            set({tokenExpirationTime: expirationTime});
+
             // After successful login, fetch user profile
             await get().fetchUserProfile();
             set({isLoggedIn: true, isLoading: false});
@@ -120,13 +170,31 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        await authApi.logout();
-        set({isLoggedIn: false, user: null});
+        try {
+          await authApi.logout();
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          // Clear everything regardless of API call success
+          set({
+            isLoggedIn: false,
+            user: null,
+            tokenExpirationTime: null,
+            error: null,
+          });
+        }
       },
 
       fetchUserProfile: async () => {
         try {
           set({isLoading: true, error: null});
+
+          // Check if token needs refresh before making the request
+          const tokenRefreshed = await get().refreshTokenIfNeeded();
+          if (!tokenRefreshed) {
+            throw new Error('Unable to refresh token');
+          }
+
           const response = await authApi.getProfile();
 
           if (response.success) {
@@ -136,6 +204,17 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error: any) {
           console.error('Fetch profile error:', error);
+
+          // If it's an auth error, logout the user
+          if (
+            error.response?.status === 401 ||
+            error.response?.status === 403
+          ) {
+            console.log('Auth error during profile fetch, logging out...');
+            await get().logout();
+            return;
+          }
+
           set({
             isLoading: false,
             error:
@@ -148,6 +227,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('Updating profile with data:', data);
           set({isLoading: true, error: null});
+
+          // Check if token needs refresh before making the request
+          const tokenRefreshed = await get().refreshTokenIfNeeded();
+          if (!tokenRefreshed) {
+            throw new Error('Unable to refresh token');
+          }
 
           const response = await authApi.updateProfile(data);
           console.log('Update profile response:', response);
@@ -163,6 +248,17 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error: any) {
           console.error('Update profile error:', error);
+
+          // If it's an auth error, logout the user
+          if (
+            error.response?.status === 401 ||
+            error.response?.status === 403
+          ) {
+            console.log('Auth error during profile update, logging out...');
+            await get().logout();
+            return false;
+          }
+
           set({
             isLoading: false,
             error:
@@ -173,12 +269,101 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      checkTokenExpiration: async () => {
+        const {tokenExpirationTime, isLoggedIn} = get();
+
+        if (!isLoggedIn || !tokenExpirationTime) {
+          return false;
+        }
+
+        const now = Date.now();
+        const timeUntilExpiry = tokenExpirationTime - now;
+
+        // If token expires in less than 5 minutes, consider it expired
+        const BUFFER_TIME = 5 * 60 * 1000; // 5 minutes
+
+        return timeUntilExpiry > BUFFER_TIME;
+      },
+
+      refreshTokenIfNeeded: async () => {
+        try {
+          const isTokenValid = await get().checkTokenExpiration();
+
+          if (isTokenValid) {
+            return true; // Token is still valid
+          }
+
+          console.log('Token expired or expiring soon, attempting refresh...');
+
+          const refreshToken = await AsyncStorage.getItem('@refresh_token');
+          if (!refreshToken) {
+            console.log('No refresh token found, logging out...');
+            await get().logout();
+            return false;
+          }
+
+          // Import the API client to use the refresh endpoint directly
+          const {default: apiClient} = await import('../api/apiClient');
+
+          const response = await apiClient.post('/api/auth/refresh-token', {
+            refreshToken,
+            token_expires_in: '1y',
+          });
+
+          if (response.data.success) {
+            console.log('Token refreshed successfully');
+
+            // Update token expiration time
+            const expirationTime = calculateTokenExpiration('1y');
+            set({tokenExpirationTime: expirationTime});
+
+            return true;
+          } else {
+            console.log('Token refresh failed, logging out...');
+            await get().logout();
+            return false;
+          }
+        } catch (error: any) {
+          console.error('Token refresh error:', error);
+
+          if (
+            error.response?.status === 401 ||
+            error.response?.status === 403
+          ) {
+            console.log('Refresh token is invalid, logging out...');
+            await get().logout();
+          }
+
+          return false;
+        }
+      },
+
       clearError: () => set({error: null}),
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: state => ({isLoggedIn: state.isLoggedIn, user: state.user}),
+      partialize: state => ({
+        isLoggedIn: state.isLoggedIn,
+        user: state.user,
+        tokenExpirationTime: state.tokenExpirationTime,
+      }),
+      // Add version to handle migration if needed
+      version: 1,
+      // Handle rehydration
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('Auth store rehydration error:', error);
+        } else if (state) {
+          // Check token expiration on app start
+          state.checkTokenExpiration().then(isValid => {
+            if (!isValid && state.isLoggedIn) {
+              console.log('Token expired on app start, attempting refresh...');
+              state.refreshTokenIfNeeded();
+            }
+          });
+        }
+      },
     },
   ),
 );

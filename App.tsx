@@ -6,10 +6,13 @@ import {ThemeProvider} from './src/context/ThemeContext';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from './src/api/queryClient';
+import AppLifecycleManager from './src/utils/appLifecycleManager';
 import 'react-native-gesture-handler';
 
 function App(): React.JSX.Element {
   const [fontLoaded, setFontLoaded] = useState(false);
+  const [lifecycleManagerInitialized, setLifecycleManagerInitialized] =
+    useState(false);
 
   useEffect(() => {
     // Simulate font loading
@@ -18,10 +21,22 @@ function App(): React.JSX.Element {
     }, 100);
   }, []);
 
-  if (!fontLoaded) {
+  useEffect(() => {
+    // Initialize lifecycle manager
+    const lifecycleManager = AppLifecycleManager.getInstance();
+    lifecycleManager.init();
+    setLifecycleManagerInitialized(true);
+
+    // Cleanup function
+    return () => {
+      lifecycleManager.destroy();
+    };
+  }, []);
+
+  if (!fontLoaded || !lifecycleManagerInitialized) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading fonts...</Text>
+        <Text>Loading application...</Text>
       </View>
     );
   }

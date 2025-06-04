@@ -122,7 +122,7 @@ const ProductsScreen = () => {
     }).start();
   }, [showSortMenu]);
 
-  // RESTORED FROM OLD: Query for search - fetches ALL products when searching
+  // Query for search - fetches ALL products when searching
   const {
     data: searchData,
     isLoading: isSearchLoading,
@@ -184,6 +184,7 @@ const ProductsScreen = () => {
     isLoading: isLoadingProducts,
     error: productsError,
     refetch: refetchProducts,
+    isInitialLoading,
   } = useInfiniteQuery({
     queryKey: ['products', {sortBy, order: sortOrder}],
     queryFn: async ({pageParam}: {pageParam: number}) => {
@@ -260,7 +261,7 @@ const ProductsScreen = () => {
     navigation.navigate('AddProduct');
   }, [navigation]);
 
-  // RESTORED FROM OLD: Improved refresh handling
+  // Improved refresh handling
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
 
@@ -525,13 +526,31 @@ const ProductsScreen = () => {
       ...getFontStyle('semiBold', 16),
       color: '#FFFFFF',
     },
+    // Add skeleton container styles
+    skeletonContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    searchLoadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingTop: 40,
+    },
+    searchLoadingText: {
+      ...getFontStyle('regular', 16),
+      color: colors.text,
+      marginTop: 16,
+    },
   });
 
-  // Determine loading state
-  const isLoading = isSearching ? isSearchLoading : isLoadingProducts;
-  const error = isSearching ? searchError : productsError;
+  // Determine loading states
+  const isInitialProductsLoading = !isSearching && isInitialLoading;
+  const isSearchLoadingState = isSearching && isSearchLoading;
+  const hasProductsError = !isSearching && productsError;
+  const hasSearchError = isSearching && searchError;
 
-  // RESTORED FROM OLD: Main content render
+  // Main content render
   const renderMainContent = () => {
     const headerContent = (
       <>
@@ -802,8 +821,8 @@ const ProductsScreen = () => {
         </Animated.View>
       )}
 
-      {/* RESTORED FROM OLD: Search result text */}
-      {isSearching && !isSearchLoading && (
+      {/* Search result text */}
+      {isSearching && !isSearchLoadingState && (
         <Text
           style={[
             styles.searchResultText,
@@ -815,24 +834,38 @@ const ProductsScreen = () => {
         </Text>
       )}
 
-      {/* RESTORED FROM OLD: Proper loading and content rendering */}
-      {isLoading && displayedProducts.length === 0 ? (
-        <View style={styles.loadingContainer}>
+      {/* SKELETON LOADING - Only for initial product loading */}
+      {isInitialProductsLoading ? (
+        <View style={styles.skeletonContainer}>
+          <ProductListSkeleton
+            numColumns={numColumns}
+            itemCount={numColumns * 3}
+          />
+        </View>
+      ) : /* SEARCH LOADING - Different loading for search */
+      isSearchLoadingState ? (
+        <View style={styles.searchLoadingContainer}>
           <LoadingAnimation size="medium" type="dots" />
-          <Text style={[styles.emptyText, {marginTop: 16}]}>
-            {isSearching ? 'Searching all products...' : 'Loading products...'}
+          <Text style={styles.searchLoadingText}>
+            Searching all products...
           </Text>
         </View>
-      ) : error ? (
+      ) : /* ERROR STATES */
+      hasProductsError || hasSearchError ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Error loading products</Text>
+          <Text style={styles.errorText}>
+            {hasProductsError
+              ? 'Error loading products'
+              : 'Error searching products'}
+          </Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => handleRefresh()}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : displayedProducts.length === 0 ? (
+      ) : /* EMPTY STATES */
+      displayedProducts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Icon
             name={isSearching ? 'magnify-close' : 'package-variant'}
@@ -853,6 +886,7 @@ const ProductsScreen = () => {
           )}
         </View>
       ) : (
+        /* PRODUCTS LIST */
         <Animated.View style={{flex: 1, opacity: listOpacity}}>
           <FlatList
             data={displayedProducts}
