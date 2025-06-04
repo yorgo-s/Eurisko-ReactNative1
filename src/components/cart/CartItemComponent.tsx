@@ -1,4 +1,4 @@
-import React, {useContext, useRef, useState} from 'react';
+import React, {useContext, useRef, useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import {PanGestureHandler} from 'react-native-gesture-handler';
+import {PanGestureHandler, State} from 'react-native-gesture-handler';
 import {ThemeContext} from '../../context/ThemeContext';
 import {useCartStore, CartItem} from '../../store/cartStore';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -42,15 +42,18 @@ const CartItemComponent: React.FC<CartItemComponentProps> = ({
     return `https://backend-practice.eurisko.me${relativeUrl}`;
   };
 
-  const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem();
-    } else {
-      updateQuantity(item.product._id, newQuantity);
-    }
-  };
+  const handleQuantityChange = useCallback(
+    (newQuantity: number) => {
+      if (newQuantity <= 0) {
+        handleRemoveItem();
+      } else {
+        updateQuantity(item.product._id, newQuantity);
+      }
+    },
+    [item.product._id, updateQuantity],
+  );
 
-  const handleRemoveItem = () => {
+  const handleRemoveItem = useCallback(() => {
     Alert.alert(
       'Remove Item',
       `Remove "${item.product.title}" from your cart?`,
@@ -73,35 +76,47 @@ const CartItemComponent: React.FC<CartItemComponentProps> = ({
         },
       ],
     );
-  };
+  }, [item.product._id, item.product.title, removeFromCart, translateX]);
 
-  const onGestureEvent = Animated.event(
-    [{nativeEvent: {translationX: translateX}}],
-    {useNativeDriver: true},
+  const onGestureEvent = useCallback(
+    Animated.event([{nativeEvent: {translationX: translateX}}], {
+      useNativeDriver: true,
+    }),
+    [translateX],
   );
 
-  const onHandlerStateChange = (event: any) => {
-    if (event.nativeEvent.state === 5) {
-      // ENDED
-      const {translationX} = event.nativeEvent;
+  const onHandlerStateChange = useCallback(
+    (event: any) => {
+      if (event.nativeEvent.state === State.END) {
+        const {translationX} = event.nativeEvent;
 
-      if (translationX < -SWIPE_THRESHOLD) {
-        // Swipe threshold reached - show delete confirmation
-        handleRemoveItem();
-        // Reset position
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      } else {
-        // Reset to original position
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
+        if (translationX < -SWIPE_THRESHOLD) {
+          // Swipe threshold reached - show delete confirmation
+          handleRemoveItem();
+          // Reset position
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        } else {
+          // Reset to original position
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
       }
-    }
-  };
+    },
+    [handleRemoveItem, translateX],
+  );
+
+  const handleIncrement = useCallback(() => {
+    handleQuantityChange(item.quantity + 1);
+  }, [item.quantity, handleQuantityChange]);
+
+  const handleDecrement = useCallback(() => {
+    handleQuantityChange(item.quantity - 1);
+  }, [item.quantity, handleQuantityChange]);
 
   const styles = StyleSheet.create({
     container: {
@@ -265,7 +280,7 @@ const CartItemComponent: React.FC<CartItemComponentProps> = ({
                   styles.quantityButton,
                   item.quantity <= 1 && styles.quantityButtonDisabled,
                 ]}
-                onPress={() => handleQuantityChange(item.quantity - 1)}
+                onPress={handleDecrement}
                 disabled={item.quantity <= 1}>
                 <Icon
                   name="minus"
@@ -278,7 +293,7 @@ const CartItemComponent: React.FC<CartItemComponentProps> = ({
 
               <TouchableOpacity
                 style={styles.quantityButton}
-                onPress={() => handleQuantityChange(item.quantity + 1)}>
+                onPress={handleIncrement}>
                 <Icon name="plus" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -295,4 +310,4 @@ const CartItemComponent: React.FC<CartItemComponentProps> = ({
   );
 };
 
-export default CartItemComponent;
+export default React.memo(CartItemComponent);
