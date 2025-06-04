@@ -117,21 +117,6 @@ const AnimatedProductCard = ({
       justifyContent: 'space-between',
       marginBottom: 8,
     },
-    originalPrice: {
-      ...getFontStyle('regular', 12),
-      color: isDarkMode ? '#AAAAAA' : '#999999',
-      textDecorationLine: 'line-through',
-    },
-    discount: {
-      backgroundColor: colors.error,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-    },
-    discountText: {
-      ...getFontStyle('bold', 10),
-      color: '#FFFFFF',
-    },
   });
 
   return (
@@ -173,20 +158,9 @@ const AnimatedProductCard = ({
             {product.title}
           </Text>
 
-          <View style={styles.priceContainer}>
-            <Text style={styles.price} testID={`product-price-${product._id}`}>
-              ${product.price.toFixed(2)}
-            </Text>
-
-            {/* Optional: Show discount badge for demonstration */}
-            {Math.random() > 0.7 && (
-              <View style={styles.discount}>
-                <Text style={styles.discountText}>
-                  -{Math.floor(Math.random() * 30 + 10)}%
-                </Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.price} testID={`product-price-${product._id}`}>
+            ${product.price.toFixed(2)}
+          </Text>
         </View>
       </TouchableOpacity>
 
