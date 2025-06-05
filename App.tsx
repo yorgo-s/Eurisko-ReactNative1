@@ -59,7 +59,7 @@ function App(): React.JSX.Element {
 
   const onNavigationReady = () => {
     console.log('🧭 Navigation container ready');
-    if (deepLinkInitialized && navigationRef.current) {
+    if (navigationRef.current) {
       const deepLinkManager = DeepLinkManager.getInstance();
       deepLinkManager.setNavigationRef(navigationRef.current);
     }

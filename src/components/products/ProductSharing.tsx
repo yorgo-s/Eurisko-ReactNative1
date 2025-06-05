@@ -1,6 +1,4 @@
 // src/components/products/ProductSharing.tsx
-// Replace the existing ProductSharing component with this updated version
-
 import React, {useContext} from 'react';
 import {
   View,
@@ -10,12 +8,13 @@ import {
   Alert,
   Platform,
   Share as RNShare,
-  Clipboard,
   AlertButton,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from '../../api/products';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import DeepLinkManager from '../../utils/deepLinkUtils';
 
 interface ProductSharingProps {
   product: Product;
@@ -37,91 +36,152 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     return `https://backend-practice.eurisko.me${relativeUrl}`;
   };
 
-  // Generate product URL (deep link)
-  const generateProductUrl = () => {
-    // Generate both custom scheme and HTTPS deep links
+  // Generate product URLs (deep links)
+  const generateProductUrls = () => {
     return {
-      customScheme: `awesomeshop://product/${product._id}`,
-      httpsLink: `https://awesomeshop.app/product/${product._id}`,
-      webFallback: `https://awesomeshop.app/product/${product._id}`, // Could be your actual website
+      customScheme: DeepLinkManager.generateProductLink(product._id),
+      httpsLink: DeepLinkManager.generateHTTPSProductLink(product._id),
+      webFallback: `https://awesomeshop.app/product/${product._id}`,
     };
   };
 
-  // Create share message
+  // Create comprehensive share message
   const createShareMessage = () => {
-    const urls = generateProductUrl();
+    const urls = generateProductUrls();
     const message =
-      `Check out this amazing product!\n\n` +
+      `🛒 Check out this amazing product!\n\n` +
       `📱 ${product.title}\n` +
       `💰 $${product.price.toFixed(2)}\n` +
       `📝 ${product.description.substring(0, 100)}${
         product.description.length > 100 ? '...' : ''
       }\n\n` +
-      `Open in app: ${urls.customScheme}\n` +
-      `View online: ${urls.httpsLink}`;
+      `🔗 Open in app: ${urls.customScheme}\n` +
+      `🌐 View online: ${urls.httpsLink}\n\n` +
+      `Download AwesomeShop to see more amazing products!`;
 
-    return message;
+    return {
+      message,
+      urls,
+    };
   };
 
   // Handle general sharing using React Native's built-in Share API
   const handleShare = async () => {
     try {
-      const message = createShareMessage();
+      const {message, urls} = createShareMessage();
 
-      const result = await RNShare.share({
-        message: message,
+      const shareOptions = {
         title: `${product.title} - $${product.price.toFixed(2)}`,
-        // On iOS, you can also share a URL separately
-        url:
-          product.images && product.images.length > 0
-            ? getImageUrl(product.images[0].url)
-            : undefined,
-      });
+        message: message,
+        url: Platform.OS === 'ios' ? urls.httpsLink : undefined,
+      };
+
+      // On Android, include URL in message since Android Share API doesn't support url parameter
+      if (Platform.OS === 'android') {
+        shareOptions.message = message;
+      }
+
+      const result = await RNShare.share(shareOptions);
 
       if (result.action === RNShare.sharedAction) {
         if (result.activityType) {
-          // Shared with activity type of result.activityType
-          console.log('Shared with activity:', result.activityType);
+          console.log('✅ Shared with activity:', result.activityType);
         } else {
-          // Shared
-          console.log('Product shared successfully');
+          console.log('✅ Product shared successfully');
         }
+
+        // Show success feedback
+        Alert.alert(
+          'Shared Successfully!',
+          'Product link has been shared. Recipients can tap the link to view the product.',
+          [{text: 'OK'}],
+        );
+
         onShareComplete?.();
       } else if (result.action === RNShare.dismissedAction) {
-        // Dismissed
-        console.log('Share dismissed');
+        console.log('ℹ️ Share dismissed');
       }
     } catch (error: any) {
-      console.error('Share error:', error);
-      Alert.alert('Error', 'Failed to share product');
+      console.error('❌ Share error:', error);
+      Alert.alert(
+        'Share Failed',
+        'Unable to share the product. Please try again.',
+        [{text: 'OK'}],
+      );
     }
   };
 
   // Handle copy link
-  const handleCopyLink = () => {
-    const message = createShareMessage();
+  const handleCopyLink = async () => {
+    try {
+      const {message, urls} = createShareMessage();
 
-    // Copy to clipboard
-    Clipboard.setString(message);
+      // For copy, we'll provide both the custom scheme and HTTPS link
+      const copyMessage =
+        `${product.title} - $${product.price.toFixed(2)}\n\n` +
+        `App Link: ${urls.customScheme}\n` +
+        `Web Link: ${urls.httpsLink}\n\n` +
+        `${product.description.substring(0, 100)}${
+          product.description.length > 100 ? '...' : ''
+        }`;
 
-    Alert.alert(
-      'Copied!',
-      'Product details and deep links have been copied to clipboard',
-      [{text: 'OK'}],
-    );
+      await Clipboard.setString(copyMessage);
+
+      Alert.alert(
+        'Link Copied!',
+        'Product links have been copied to your clipboard. You can paste them anywhere to share this product.',
+        [{text: 'OK'}],
+      );
+    } catch (error) {
+      console.error('❌ Copy error:', error);
+      Alert.alert('Copy Failed', 'Unable to copy the link. Please try again.', [
+        {text: 'OK'},
+      ]);
+    }
   };
 
-  // Show sharing options
+  // Test deep link functionality (development/debug feature)
+  const handleTestDeepLink = () => {
+    if (__DEV__) {
+      const urls = generateProductUrls();
+
+      Alert.alert('Test Deep Link', 'Choose which link to test:', [
+        {
+          text: 'Custom Scheme',
+          onPress: () => {
+            const deepLinkManager = DeepLinkManager.getInstance();
+            deepLinkManager.testDeepLink(urls.customScheme);
+          },
+        },
+        {
+          text: 'HTTPS Link',
+          onPress: () => {
+            const deepLinkManager = DeepLinkManager.getInstance();
+            deepLinkManager.testDeepLink(urls.httpsLink);
+          },
+        },
+        {text: 'Cancel', style: 'cancel'},
+      ]);
+    }
+  };
+
+  // Show comprehensive sharing options
   const showSharingOptions = () => {
     const options: AlertButton[] = [
-      {text: 'Share', onPress: handleShare},
-      {text: 'Copy Link', onPress: handleCopyLink},
-      {text: 'Cancel', style: 'cancel'},
+      {text: 'Share via Apps', onPress: handleShare},
+      {text: 'Copy Links', onPress: handleCopyLink},
     ];
+
+    // Add test option in development
+    if (__DEV__) {
+      options.push({text: 'Test Deep Link', onPress: handleTestDeepLink});
+    }
+
+    options.push({text: 'Cancel', style: 'cancel'});
 
     Alert.alert(
       'Share Product',
-      'Choose how you want to share this product',
+      'Choose how you want to share this product:',
       options,
     );
   };
@@ -158,20 +218,46 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
       justifyContent: 'center',
       alignItems: 'center',
     },
+    infoContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary + '10',
+      padding: 12,
+      borderRadius: 8,
+      marginTop: 12,
+    },
+    infoText: {
+      ...getFontStyle('regular', 12),
+      color: colors.primary,
+      marginLeft: 8,
+      flex: 1,
+    },
   });
 
   return (
-    <View style={styles.container}>
-      {/* Main Share Button */}
-      <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-        <Icon name="share-variant" size={20} color="#FFFFFF" />
-        <Text style={styles.shareButtonText}>Share Product</Text>
-      </TouchableOpacity>
+    <View>
+      <View style={styles.container}>
+        {/* Main Share Button */}
+        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+          <Icon name="share-variant" size={20} color="#FFFFFF" />
+          <Text style={styles.shareButtonText}>Share Product</Text>
+        </TouchableOpacity>
 
-      {/* More Options Button */}
-      <TouchableOpacity style={styles.moreButton} onPress={showSharingOptions}>
-        <Icon name="dots-horizontal" size={24} color={colors.text} />
-      </TouchableOpacity>
+        {/* More Options Button */}
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={showSharingOptions}>
+          <Icon name="dots-horizontal" size={24} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Info about deep linking */}
+      <View style={styles.infoContainer}>
+        <Icon name="information" size={16} color={colors.primary} />
+        <Text style={styles.infoText}>
+          Share links that open directly in the app for the best experience!
+        </Text>
+      </View>
     </View>
   );
 };
@@ -187,27 +273,25 @@ export const QuickShareBar: React.FC<ProductSharingProps> = ({
   const handleQuickShare = async () => {
     try {
       const urls = {
-        customScheme: `awesomeshop://product/${product._id}`,
-        httpsLink: `https://awesomeshop.app/product/${product._id}`,
+        customScheme: DeepLinkManager.generateProductLink(product._id),
+        httpsLink: DeepLinkManager.generateHTTPSProductLink(product._id),
       };
 
       const message =
-        `Check out this product: ${product.title} - $${product.price.toFixed(
-          2,
-        )}\n\n` +
+        `🛒 ${product.title} - $${product.price.toFixed(2)}\n\n` +
         `Open in app: ${urls.customScheme}\n` +
         `View online: ${urls.httpsLink}`;
 
       const result = await RNShare.share({
-        message: message,
         title: product.title,
+        message: message,
       });
 
       if (result.action === RNShare.sharedAction) {
         onShareComplete?.();
       }
     } catch (error: any) {
-      console.error('Share error:', error);
+      console.error('❌ Quick share error:', error);
       Alert.alert('Error', 'Failed to share product');
     }
   };
