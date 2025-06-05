@@ -25,6 +25,7 @@
     "notifee": "^0.0.1",
     "react": "19.0.0",
     "react-native": "0.79.2",
+    "react-native-bootsplash": "^6.3.8",
     "react-native-config": "^1.5.5",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.25.0",
