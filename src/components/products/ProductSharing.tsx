@@ -11,6 +11,7 @@ import {
   Platform,
   Share as RNShare,
   Clipboard,
+  AlertButton,
 } from 'react-native';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from '../../api/products';
@@ -36,15 +37,19 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     return `https://backend-practice.eurisko.me${relativeUrl}`;
   };
 
-  // Generate product URL (in a real app, this would be your deep link)
+  // Generate product URL (deep link)
   const generateProductUrl = () => {
-    // This could be a deep link in a real app
-    return `https://yourapp.com/products/${product._id}`;
+    // Generate both custom scheme and HTTPS deep links
+    return {
+      customScheme: `awesomeshop://product/${product._id}`,
+      httpsLink: `https://awesomeshop.app/product/${product._id}`,
+      webFallback: `https://awesomeshop.app/product/${product._id}`, // Could be your actual website
+    };
   };
 
   // Create share message
   const createShareMessage = () => {
-    const url = generateProductUrl();
+    const urls = generateProductUrl();
     const message =
       `Check out this amazing product!\n\n` +
       `📱 ${product.title}\n` +
@@ -52,7 +57,8 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
       `📝 ${product.description.substring(0, 100)}${
         product.description.length > 100 ? '...' : ''
       }\n\n` +
-      `View details: ${url}`;
+      `Open in app: ${urls.customScheme}\n` +
+      `View online: ${urls.httpsLink}`;
 
     return message;
   };
@@ -93,31 +99,25 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
 
   // Handle copy link
   const handleCopyLink = () => {
-    const url = generateProductUrl();
     const message = createShareMessage();
 
     // Copy to clipboard
     Clipboard.setString(message);
 
-    Alert.alert('Copied!', 'Product details have been copied to clipboard', [
-      {text: 'OK'},
-    ]);
+    Alert.alert(
+      'Copied!',
+      'Product details and deep links have been copied to clipboard',
+      [{text: 'OK'}],
+    );
   };
 
   // Show sharing options
   const showSharingOptions = () => {
-    const options =
-      Platform.OS === 'ios'
-        ? [
-            {text: 'Share', onPress: handleShare},
-            {text: 'Copy Link', onPress: handleCopyLink},
-            {text: 'Cancel', style: 'cancel'},
-          ]
-        : [
-            {text: 'Copy Link', onPress: handleCopyLink},
-            {text: 'Cancel', style: 'cancel'},
-            {text: 'Share', onPress: handleShare},
-          ];
+    const options: AlertButton[] = [
+      {text: 'Share', onPress: handleShare},
+      {text: 'Copy Link', onPress: handleCopyLink},
+      {text: 'Cancel', style: 'cancel'},
+    ];
 
     Alert.alert(
       'Share Product',
@@ -186,9 +186,17 @@ export const QuickShareBar: React.FC<ProductSharingProps> = ({
   // Simple share handler
   const handleQuickShare = async () => {
     try {
-      const message = `Check out this product: ${
-        product.title
-      } - $${product.price.toFixed(2)}`;
+      const urls = {
+        customScheme: `awesomeshop://product/${product._id}`,
+        httpsLink: `https://awesomeshop.app/product/${product._id}`,
+      };
+
+      const message =
+        `Check out this product: ${product.title} - $${product.price.toFixed(
+          2,
+        )}\n\n` +
+        `Open in app: ${urls.customScheme}\n` +
+        `View online: ${urls.httpsLink}`;
 
       const result = await RNShare.share({
         message: message,

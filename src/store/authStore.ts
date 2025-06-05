@@ -101,6 +101,18 @@ export const useAuthStore = create<AuthState>()(
             await get().fetchUserProfile();
             set({isLoggedIn: true, isLoading: false});
             console.log('Login flow complete, isLoggedIn set to true');
+
+            // Handle post-login navigation for deep links
+            try {
+              const {default: DeepLinkManager} = await import(
+                '../utils/deepLinkUtils'
+              );
+              const deepLinkManager = DeepLinkManager.getInstance();
+              await deepLinkManager.handlePostLoginNavigation();
+            } catch (error) {
+              console.error('Error handling post-login navigation:', error);
+            }
+
             return true;
           } else {
             console.log('Login failed response:', response);
