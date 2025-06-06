@@ -17,6 +17,7 @@ import {useAuthStore} from '../../store/authStore';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import EditProfileModal from '../../components/profile/EditProfileModal';
+import CrashTestButton from '../../components/common/CrashTestButton';
 
 const ProfileScreen = () => {
   const {colors, isDarkMode, typography, getFontStyle, toggleTheme} =
@@ -402,6 +403,12 @@ const ProfileScreen = () => {
           {/* Account Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
+            {__DEV__ && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Development Tools</Text>
+                <CrashTestButton />
+              </View>
+            )}
 
             <View style={styles.option}>
               <View style={styles.optionIcon}>
