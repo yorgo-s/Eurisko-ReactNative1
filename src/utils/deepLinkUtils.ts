@@ -1,4 +1,4 @@
-// src/utils/deepLinkUtils.ts - UPDATED with Login Navigation Support
+// src/utils/deepLinkUtils.ts - FIXED VERSION
 import {Linking} from 'react-native';
 import {NavigationContainerRef} from '@react-navigation/native';
 
@@ -115,6 +115,9 @@ export class DeepLinkManager {
     try {
       console.log('🔍 Parsing custom scheme URL:', url);
 
+      // For custom schemes, we need to handle them differently
+      // Format: awesomeshop://product/123 or awesomeshop://cart
+
       // Remove the scheme and get the path
       const urlWithoutScheme = url.replace('awesomeshop://', '');
       const pathSegments = urlWithoutScheme
@@ -144,9 +147,6 @@ export class DeepLinkManager {
         } else if (firstSegment === 'products') {
           params.screen = 'Products';
           console.log('🔍 Detected products list link:', params);
-        } else if (firstSegment === 'login') {
-          params.screen = 'Login';
-          console.log('🔍 Detected login link:', params);
         }
       }
 
@@ -195,8 +195,6 @@ export class DeepLinkManager {
           params.screen = 'Profile';
         } else if (firstSegment === 'products') {
           params.screen = 'Products';
-        } else if (firstSegment === 'login') {
-          params.screen = 'Login';
         }
       }
 
@@ -224,13 +222,6 @@ export class DeepLinkManager {
 
       console.log('👤 User logged in:', isLoggedIn);
       console.log('🎯 Navigation params:', params);
-
-      // Handle login screen specifically
-      if (params.screen === 'Login') {
-        console.log('🔒 Navigating to login screen');
-        this.navigateToLogin();
-        return;
-      }
 
       if (params.screen === 'ProductDetails' && params.productId) {
         if (isLoggedIn) {
@@ -344,15 +335,7 @@ export class DeepLinkManager {
 
     try {
       console.log('🔗 Navigating to login');
-      // Check current navigation state to avoid unnecessary resets
-      const currentState = this.navigationRef.getCurrentRoute();
-
-      if (currentState?.name !== 'Login') {
-        this.navigationRef.reset({
-          index: 0,
-          routes: [{name: 'Login'}],
-        });
-      }
+      this.navigationRef.navigate('Login');
     } catch (error) {
       console.error('❌ Error navigating to login:', error);
     }
@@ -414,10 +397,6 @@ export class DeepLinkManager {
 
   static generateProfileLink(): string {
     return `awesomeshop://profile`;
-  }
-
-  static generateLoginLink(): string {
-    return `awesomeshop://login`;
   }
 
   // Public method to test deep links

@@ -1,4 +1,3 @@
-// src/screens/products/AddProductScreen.tsx - UPDATED with Push Notifications
 import React, {useContext, useState} from 'react';
 import {
   View,
@@ -22,7 +21,6 @@ import {useCreateProduct} from '../../hooks/useProducts';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import ImagePickerComponent from '../../components/common/ImagePicker';
 import {CameraImage} from '../../hooks/useCamera';
-import notificationService from '../../utils/notificationService';
 
 // Validation schema
 const productSchema = z.object({
@@ -81,7 +79,7 @@ const AddProductScreen = () => {
   const selectedLocation = watch('location');
   const createProductMutation = useCreateProduct();
 
-  // UPDATED: Enhanced onSubmit with push notifications
+  // UPDATED: Simplified onSubmit - backend will handle notifications
   const onSubmit = async (data: ProductFormData) => {
     if (images.length === 0) {
       Alert.alert('Error', 'Please add at least one image');
@@ -105,14 +103,20 @@ const AddProductScreen = () => {
 
     createProductMutation.mutate(productData, {
       onSuccess: async response => {
-        console.log('✅ Product created successfully:', response);
+        try {
+          console.log('✅ Product created successfully:', response);
 
-        // NEW: Send push notification after successful product creation
-        if (response.success && response.data) {
-          console.log('📤 Sending product notification...');
+          Alert.alert('Success', 'Product added successfully!', [
+            {text: 'OK', onPress: () => navigation.goBack()},
+          ]);
 
-          notificationService();
-
+          // NOTE: Push notifications will be sent automatically by the backend
+          // when a product is successfully created. The backend will:
+          // 1. Send notifications to all subscribed users
+          // 2. Include deep link data for navigation
+          // 3. Handle targeting and delivery
+        } catch (error) {
+          console.error('❌ Error in success handler:', error);
           Alert.alert('Success', 'Product added successfully!', [
             {text: 'OK', onPress: () => navigation.goBack()},
           ]);
@@ -122,28 +126,10 @@ const AddProductScreen = () => {
         console.error('❌ Error creating product:', error);
         Alert.alert(
           'Error',
-          error?.response?.data?.message || 'Failed to add product',
+          error.response?.data?.message || 'Failed to add product',
         );
       },
     });
-
-    // NOTE: Push notifications will be sent automatically by the app
-    // The backend doesn't need to handle this since we're using OneSignal
-    //     } catch (error) {
-    //       console.error('❌ Error in success handler:', error);
-    //       Alert.alert('Success', 'Product added successfully!', [
-    //         {text: 'OK', onPress: () => navigation.goBack()},
-    //       ]);
-    //     }
-    //   },
-    //   onError: (error: any) => {
-    //     console.error('❌ Error creating product:', error);
-    //     Alert.alert(
-    //       'Error',
-    //       error.response?.data?.message || 'Failed to add product',
-    //     );
-    //   },
-    // });
   };
 
   const handleMapPress = (event: any) => {
@@ -322,30 +308,6 @@ const AddProductScreen = () => {
       marginTop: 4,
       fontStyle: 'italic',
     },
-    // NEW: Notification status indicator
-    notificationSection: {
-      backgroundColor: colors.primary + '10',
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 20,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
-    },
-    notificationHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 4,
-    },
-    notificationTitle: {
-      ...getFontStyle('semiBold', 14),
-      color: colors.primary,
-      marginLeft: 8,
-    },
-    notificationText: {
-      ...getFontStyle('regular', 12),
-      color: colors.text,
-      lineHeight: 18,
-    },
   });
 
   return (
@@ -358,18 +320,6 @@ const AddProductScreen = () => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* NEW: Notification Info Section */}
-        <View style={styles.notificationSection}>
-          <View style={styles.notificationHeader}>
-            <Icon name="bell-ring" size={16} color={colors.primary} />
-            <Text style={styles.notificationTitle}>Push Notifications</Text>
-          </View>
-          <Text style={styles.notificationText}>
-            When you add this product, all app users will receive a push
-            notification with a direct link to view your product.
-          </Text>
-        </View>
-
         {/* Title Input */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Title</Text>
