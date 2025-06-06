@@ -110,11 +110,28 @@ const AddProductScreen = () => {
             {text: 'OK', onPress: () => navigation.goBack()},
           ]);
 
-          // NOTE: Push notifications will be sent automatically by the backend
-          // when a product is successfully created. The backend will:
-          // 1. Send notifications to all subscribed users
-          // 2. Include deep link data for navigation
-          // 3. Handle targeting and delivery
+          // Send notification - SIMPLE VERSION
+          try {
+            const {sendProductNotification} = await import(
+              '../../utils/notificationService'
+            );
+            const productId = response.data?._id || response.data?.id;
+
+            if (productId) {
+              await sendProductNotification(
+                productId,
+                data.title,
+                Number(data.price),
+                images.length > 0
+                  ? `https://backend-practice.eurisko.me${images[0].uri}`
+                  : undefined,
+              );
+              console.log('✅ Notification sent');
+            }
+          } catch (notificationError) {
+            console.error('❌ Notification failed:', notificationError);
+            // Don't fail product creation if notification fails
+          }
         } catch (error) {
           console.error('❌ Error in success handler:', error);
           Alert.alert('Success', 'Product added successfully!', [

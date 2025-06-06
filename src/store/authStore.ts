@@ -1,4 +1,4 @@
-// src/store/authStore.ts - UPDATED with Notification Navigation
+// src/store/authStore.ts - COMPLETE SIMPLIFIED VERSION
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,7 +32,7 @@ interface AuthState {
   checkTokenExpiration: () => Promise<boolean>;
   refreshTokenIfNeeded: () => Promise<boolean>;
 
-  // Notification-related methods
+  // Simple notification methods
   setupNotificationTags: () => Promise<void>;
   clearNotificationTags: () => Promise<void>;
 }
@@ -128,22 +128,6 @@ export const useAuthStore = create<AuthState>()(
               await deepLinkManager.handlePostLoginNavigation();
             } catch (error) {
               console.error('Error handling post-login navigation:', error);
-            }
-
-            // NEW: Handle post-login notification navigation
-            try {
-              console.log('🔔 Checking for notification navigation...');
-              const PushNotificationManager = (
-                await import('../utils/pushNotificationUtils')
-              ).default;
-              const pushManager = PushNotificationManager.getInstance();
-              await pushManager.handlePostLoginNotificationNavigation();
-            } catch (notificationError) {
-              console.error(
-                '❌ Error handling notification navigation:',
-                notificationError,
-              );
-              // Don't fail login if notification navigation fails
             }
 
             return true;
@@ -406,7 +390,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Setup notification tags for targeting
+      // SIMPLIFIED notification tag setup
       setupNotificationTags: async () => {
         try {
           const {user} = get();
@@ -416,23 +400,13 @@ export const useAuthStore = create<AuthState>()(
           }
 
           console.log('🔔 Setting up notification tags for user:', user.email);
+          const {OneSignal} = await import('react-native-onesignal');
 
-          // Dynamically import to avoid circular dependencies
-          const PushNotificationManager = (
-            await import('../utils/pushNotificationUtils')
-          ).default;
-          const pushManager = PushNotificationManager.getInstance();
-
-          // Set user tags for targeting
-          await pushManager.setExternalUserId(user.id);
-          await pushManager.setUserTag('userId', user.id);
-          await pushManager.setUserTag('email', user.email);
-          await pushManager.setUserTag('firstName', user.firstName);
-          await pushManager.setUserTag('lastName', user.lastName);
-          await pushManager.setUserTag(
-            'isEmailVerified',
-            user.isEmailVerified.toString(),
-          );
+          OneSignal.login(user.id);
+          OneSignal.User.addTag('userId', user.id);
+          OneSignal.User.addTag('email', user.email);
+          OneSignal.User.addTag('firstName', user.firstName);
+          OneSignal.User.addTag('lastName', user.lastName);
 
           console.log('✅ Notification tags set successfully');
         } catch (error) {
@@ -441,24 +415,13 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Clear notification tags on logout
+      // SIMPLIFIED notification cleanup
       clearNotificationTags: async () => {
         try {
           console.log('🔔 Clearing notification tags');
+          const {OneSignal} = await import('react-native-onesignal');
 
-          // Dynamically import to avoid circular dependencies
-          const PushNotificationManager = (
-            await import('../utils/pushNotificationUtils')
-          ).default;
-          const pushManager = PushNotificationManager.getInstance();
-
-          // Remove user tags
-          await pushManager.removeExternalUserId();
-          await pushManager.removeUserTag('userId');
-          await pushManager.removeUserTag('email');
-          await pushManager.removeUserTag('firstName');
-          await pushManager.removeUserTag('lastName');
-          await pushManager.removeUserTag('isEmailVerified');
+          OneSignal.logout();
 
           console.log('✅ Notification tags cleared successfully');
         } catch (error) {

@@ -45,6 +45,29 @@ function App(): React.JSX.Element {
         const deepLinkCleanup = deepLinkManager.init();
         setDeepLinkInitialized(true);
 
+        // Initialize OneSignal - SIMPLE VERSION
+        console.log('🔔 Initializing OneSignal...');
+        OneSignal.Debug.setLogLevel(LogLevel.Verbose);
+        OneSignal.initialize('dafbce79-dc27-4940-9ce0-181cc802fd97');
+        OneSignal.Notifications.requestPermission(false);
+
+        // Simple notification click handler
+        OneSignal.Notifications.addEventListener('click', event => {
+          console.log('🔔 Notification clicked:', event);
+          const productId = event.notification?.additionalData?.productId;
+          if (productId && navigationRef.current) {
+            setTimeout(() => {
+              navigationRef.current?.navigate('ProductsTab', {
+                screen: 'ProductDetails',
+                params: {_id: productId},
+              });
+            }, 1000);
+          }
+        });
+
+        setPushNotificationsInitialized(true);
+        console.log('✅ OneSignal initialized');
+
         return () => {
           lifecycleManager.destroy();
           if (deepLinkCleanup) {
@@ -59,10 +82,6 @@ function App(): React.JSX.Element {
         setPushNotificationsInitialized(true);
       }
     };
-
-    OneSignal.Debug.setLogLevel(LogLevel.Verbose);
-    OneSignal.initialize('dafbce79-dc27-4940-9ce0-181cc802fd97');
-    OneSignal.Notifications.requestPermission(false);
 
     const cleanup = initializeApp();
 
