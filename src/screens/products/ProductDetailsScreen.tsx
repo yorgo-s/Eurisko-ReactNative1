@@ -978,14 +978,6 @@ const ProductDetailsScreen = () => {
                 <ProductSharing product={product} />
               </View>
             </View>
-
-            {/* Safety Information */}
-            <View style={styles.infoContainer}>
-              <Icon name="shield-check" size={16} color={colors.primary} />
-              <Text style={styles.infoText}>
-                Always meet in a safe, public place when buying or selling items
-              </Text>
-            </View>
           </View>
         </View>
       </ScrollView>

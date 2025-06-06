@@ -1,4 +1,3 @@
-// src/components/products/ProductSharing.tsx
 import React, {useContext} from 'react';
 import {
   View,
@@ -134,31 +133,6 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     }
   };
 
-  // Test deep link functionality (development/debug feature)
-  const handleTestDeepLink = () => {
-    if (__DEV__) {
-      const urls = generateProductUrls();
-
-      Alert.alert('Test Deep Link', 'Choose which link to test:', [
-        {
-          text: 'Custom Scheme',
-          onPress: () => {
-            const deepLinkManager = DeepLinkManager.getInstance();
-            deepLinkManager.testDeepLink(urls.customScheme);
-          },
-        },
-        {
-          text: 'HTTPS Link',
-          onPress: () => {
-            const deepLinkManager = DeepLinkManager.getInstance();
-            deepLinkManager.testDeepLink(urls.httpsLink);
-          },
-        },
-        {text: 'Cancel', style: 'cancel'},
-      ]);
-    }
-  };
-
   // Show comprehensive sharing options
   const showSharingOptions = () => {
     const options: AlertButton[] = [
@@ -166,10 +140,10 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
       {text: 'Copy Links', onPress: handleCopyLink},
     ];
 
-    // Add test option in development
-    if (__DEV__) {
-      options.push({text: 'Test Deep Link', onPress: handleTestDeepLink});
-    }
+    // // Add test option in development
+    // if (__DEV__) {
+    //   options.push({text: 'Test Deep Link', onPress: handleTestDeepLink});
+    // }
 
     options.push({text: 'Cancel', style: 'cancel'});
 
@@ -252,80 +226,6 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
           Share links that open directly in the app for the best experience!
         </Text>
       </View>
-    </View>
-  );
-};
-
-// Quick Share Bar Component (simplified version)
-export const QuickShareBar: React.FC<ProductSharingProps> = ({
-  product,
-  onShareComplete,
-}) => {
-  const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
-
-  // Simple share handler
-  const handleQuickShare = async () => {
-    try {
-      const urls = {
-        customScheme: DeepLinkManager.generateProductLink(product._id),
-        httpsLink: DeepLinkManager.generateHTTPSProductLink(product._id),
-      };
-
-      const message =
-        `🛒 ${product.title} - $${product.price.toFixed(2)}\n\n` +
-        `Open in app: ${urls.customScheme}\n` +
-        `View online: ${urls.httpsLink}`;
-
-      const result = await RNShare.share({
-        title: product.title,
-        message: message,
-      });
-
-      if (result.action === RNShare.sharedAction) {
-        onShareComplete?.();
-      }
-    } catch (error: any) {
-      console.error('❌ Quick share error:', error);
-      Alert.alert('Error', 'Failed to share product');
-    }
-  };
-
-  const styles = StyleSheet.create({
-    container: {
-      backgroundColor: isDarkMode ? colors.card : '#F8F9FA',
-      borderRadius: 12,
-      padding: 16,
-      marginVertical: 8,
-    },
-    title: {
-      ...getFontStyle('semiBold', 16),
-      color: colors.text,
-      marginBottom: 12,
-      textAlign: 'center',
-    },
-    shareButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    shareButtonText: {
-      ...getFontStyle('semiBold', 16),
-      color: '#FFFFFF',
-      marginLeft: 8,
-    },
-  });
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Love this product? Share it!</Text>
-      <TouchableOpacity style={styles.shareButton} onPress={handleQuickShare}>
-        <Icon name="share-variant" size={20} color="#FFFFFF" />
-        <Text style={styles.shareButtonText}>Quick Share</Text>
-      </TouchableOpacity>
     </View>
   );
 };
