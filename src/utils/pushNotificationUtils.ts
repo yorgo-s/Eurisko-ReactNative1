@@ -1,4 +1,4 @@
-// src/utils/pushNotificationUtils.ts - COMPLETE IMPLEMENTATION
+// src/utils/pushNotificationUtils.ts - FIXED VERSION
 import {OneSignal, LogLevel} from 'react-native-onesignal';
 import {Alert, Platform} from 'react-native';
 import {Product} from '../api/products';
@@ -60,7 +60,7 @@ export class PushNotificationManager {
       if (userId) {
         console.log('🔔 OneSignal User ID:', userId);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ OneSignal initialization error:', error);
       throw error;
     }
@@ -87,9 +87,10 @@ export class PushNotificationManager {
       console.log('🔔 Permission changed:', permission);
     });
 
-    // Handle subscription changes
-    OneSignal.User.addEventListener('pushSubscriptionChange', subscription => {
-      console.log('🔔 Push subscription changed:', subscription);
+    // FIXED: Use correct event listener for push subscription changes
+    OneSignal.User.addEventListener('change', event => {
+      console.log('🔔 User state changed:', event);
+      // Note: event structure may vary, so we log the full event for debugging
     });
   }
 
@@ -107,7 +108,7 @@ export class PushNotificationManager {
       } else {
         console.log('🔔 No specific navigation data, opening app normally');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error handling notification:', error);
     }
   }
@@ -118,7 +119,7 @@ export class PushNotificationManager {
       const deepLinkManager = DeepLinkManager.getInstance();
       const productUrl = `awesomeshop://product/${productId}`;
       deepLinkManager.testDeepLink(productUrl);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error navigating to product:', error);
     }
   }
@@ -129,7 +130,7 @@ export class PushNotificationManager {
       const deepLinkManager = DeepLinkManager.getInstance();
       const screenUrl = `awesomeshop://${screen.toLowerCase()}`;
       deepLinkManager.testDeepLink(screenUrl);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error navigating to screen:', error);
     }
   }
@@ -167,9 +168,11 @@ export class PushNotificationManager {
           },
         ],
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Test notification error:', error);
-      Alert.alert('Error', `Test failed: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Test failed: ${errorMessage}`);
     }
   }
 
@@ -191,9 +194,11 @@ export class PushNotificationManager {
 
       // Test the navigation
       await this.handleTestNotificationClick(notificationData);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Test product notification error:', error);
-      Alert.alert('Error', `Test failed: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Test failed: ${errorMessage}`);
     }
   }
 
@@ -210,7 +215,7 @@ export class PushNotificationManager {
         `Would navigate to product: ${data.productId}`,
         [{text: 'OK'}],
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error handling test notification:', error);
     }
   }
@@ -228,7 +233,7 @@ export class PushNotificationManager {
       }
 
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Permission check error:', error);
       return false;
     }
@@ -237,7 +242,7 @@ export class PushNotificationManager {
   async debugUserInfo(): Promise<void> {
     try {
       const userId = await OneSignal.User.getOnesignalId();
-      const pushSubscription = await OneSignal.User.getPushSubscription();
+      const pushSubscription = OneSignal.User.pushSubscription;
       const tags = await OneSignal.User.getTags();
 
       console.log('🔍 OneSignal Debug Info:');
@@ -245,16 +250,28 @@ export class PushNotificationManager {
       console.log('  Push Subscription:', pushSubscription);
       console.log('  User Tags:', tags);
 
+      // FIXED: Safe property access with proper type checking
+      const hasToken =
+        pushSubscription &&
+        typeof pushSubscription === 'object' &&
+        'token' in pushSubscription;
+      const isOptedIn =
+        pushSubscription &&
+        typeof pushSubscription === 'object' &&
+        'optedIn' in pushSubscription;
+
       Alert.alert(
         'OneSignal Debug Info',
         `User ID: ${userId || 'Not available'}\nPush Token: ${
-          pushSubscription?.token ? 'Available' : 'Not available'
-        }\nSubscribed: ${pushSubscription?.optedIn ? 'Yes' : 'No'}`,
+          hasToken ? 'Available' : 'Not available'
+        }\nSubscribed: ${isOptedIn ? 'Yes' : 'No'}`,
         [{text: 'OK'}],
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Debug info error:', error);
-      Alert.alert('Error', `Debug failed: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Debug failed: ${errorMessage}`);
     }
   }
 
@@ -284,9 +301,11 @@ export class PushNotificationManager {
         'Deep Link Test Complete',
         'Check console for navigation logs',
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Deep link test error:', error);
-      Alert.alert('Error', `Deep link test failed: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Deep link test failed: ${errorMessage}`);
     }
   }
 
@@ -361,19 +380,22 @@ export class PushNotificationManager {
         `Successfully sent notification for ${productData.title}`,
         [{text: 'OK'}],
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Backend simulation error:', error);
-      Alert.alert('Error', `Failed to send notification: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to send notification: ${errorMessage}`);
     }
   }
 
   // EXISTING METHODS WITH IMPROVEMENTS
   async checkSubscriptionState(): Promise<any> {
     try {
-      const subscription = await OneSignal.User.getPushSubscription();
+      // FIXED: Use the correct way to access push subscription
+      const subscription = OneSignal.User.pushSubscription;
       console.log('🔔 Current subscription state:', subscription);
       return subscription;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error checking subscription state:', error);
       return null;
     }
@@ -384,7 +406,7 @@ export class PushNotificationManager {
       const permission = await OneSignal.Notifications.getPermissionAsync();
       console.log('🔔 Current permission status:', permission);
       return permission;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error checking permission:', error);
       return false;
     }
@@ -414,18 +436,26 @@ export class PushNotificationManager {
 
       console.log('✅ Notification flow test completed');
 
+      // FIXED: Safe property access for subscription status
+      const isOptedIn =
+        subscription &&
+        typeof subscription === 'object' &&
+        'optedIn' in subscription
+          ? (subscription as any).optedIn
+          : false;
+
       Alert.alert(
         'Notification Test Results',
         `Permission: ${hasPermission ? 'Granted' : 'Denied'}\nUser ID: ${
           userId || 'Not available'
-        }\nSubscribed: ${
-          subscription?.optedIn ? 'Yes' : 'No'
-        }\nTest mode tag set: Yes`,
+        }\nSubscribed: ${isOptedIn ? 'Yes' : 'No'}\nTest mode tag set: Yes`,
         [{text: 'OK'}],
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Notification flow test failed:', error);
-      Alert.alert('Test Failed', error.message);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Test Failed', errorMessage);
     }
   }
 
@@ -465,7 +495,7 @@ export class PushNotificationManager {
 
       console.log('🔔 Product notification prepared:', notificationData);
       console.log('⚠️ Note: Send this from your backend in production');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error preparing product notification:', error);
     }
   }
@@ -474,7 +504,7 @@ export class PushNotificationManager {
     try {
       const userId = await OneSignal.User.getOnesignalId();
       return userId || null;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting user ID:', error);
       return null;
     }
@@ -484,7 +514,7 @@ export class PushNotificationManager {
     try {
       OneSignal.User.addTag(key, value);
       console.log(`🏷️ Set user tag: ${key} = ${value}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ Error setting user tag ${key}:`, error);
     }
   }
@@ -493,7 +523,7 @@ export class PushNotificationManager {
     try {
       OneSignal.User.removeTag(key);
       console.log(`🗑️ Removed user tag: ${key}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ Error removing user tag ${key}:`, error);
     }
   }
@@ -502,7 +532,7 @@ export class PushNotificationManager {
     try {
       OneSignal.login(externalId);
       console.log(`👤 Set external user ID: ${externalId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error setting external user ID:', error);
     }
   }
@@ -511,7 +541,7 @@ export class PushNotificationManager {
     try {
       OneSignal.logout();
       console.log('🗑️ Removed external user ID');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error removing external user ID:', error);
     }
   }
@@ -521,7 +551,7 @@ export class PushNotificationManager {
       const tags = await OneSignal.User.getTags();
       console.log('🏷️ Current user tags:', tags);
       return tags;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error getting user tags:', error);
       return {};
     }
@@ -530,14 +560,22 @@ export class PushNotificationManager {
   async canSendNotifications(): Promise<boolean> {
     try {
       const permission = await this.checkPermissionStatus();
-      const subscription = await this.checkSubscriptionState();
+      const subscription = OneSignal.User.pushSubscription;
       const userId = await this.getUserId();
 
-      const canSend = permission && subscription?.optedIn && userId;
+      // FIXED: Safe property access with proper type checking
+      const isOptedIn =
+        subscription &&
+        typeof subscription === 'object' &&
+        'optedIn' in subscription
+          ? (subscription as any).optedIn
+          : false;
+
+      const canSend = permission && isOptedIn && userId;
       console.log('🔔 Can send notifications:', canSend);
 
       return !!canSend;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error checking notification capability:', error);
       return false;
     }
