@@ -11,9 +11,10 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from './src/api/queryClient';
 import AppLifecycleManager from './src/utils/appLifecycleManager';
 import DeepLinkManager from './src/utils/deepLinkUtils';
-import PushNotificationManager from './src/utils/pushNotificationUtils';
+// import PushNotificationManager from './src/utils/pushNotificationUtils';
 import 'react-native-gesture-handler';
 import 'react-native-url-polyfill/auto';
+import {OneSignal, LogLevel} from 'react-native-onesignal';
 
 function App(): React.JSX.Element {
   const [fontLoaded, setFontLoaded] = useState(false);
@@ -46,9 +47,9 @@ function App(): React.JSX.Element {
         setDeepLinkInitialized(true);
 
         // Initialize push notifications
-        const pushNotificationManager = PushNotificationManager.getInstance();
-        await pushNotificationManager.initialize();
-        setPushNotificationsInitialized(true);
+        // const pushNotificationManager = PushNotificationManager.getInstance();
+        // await pushNotificationManager.initialize();
+        // setPushNotificationsInitialized(true);
 
         // Cleanup function will be returned for useEffect cleanup
         return () => {
@@ -65,6 +66,10 @@ function App(): React.JSX.Element {
         setPushNotificationsInitialized(true);
       }
     };
+
+    OneSignal.Debug.setLogLevel(LogLevel.Verbose);
+    OneSignal.initialize('dafbce79-dc27-4940-9ce0-181cc802fd97');
+    OneSignal.Notifications.requestPermission(false);
 
     const cleanup = initializeApp();
 

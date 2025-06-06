@@ -1,3 +1,4 @@
+// src/store/authStore.ts - UPDATED with Notification Navigation
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +32,7 @@ interface AuthState {
   checkTokenExpiration: () => Promise<boolean>;
   refreshTokenIfNeeded: () => Promise<boolean>;
 
-  // NEW: Notification-related methods
+  // Notification-related methods
   setupNotificationTags: () => Promise<void>;
   clearNotificationTags: () => Promise<void>;
 }
@@ -105,7 +106,7 @@ export const useAuthStore = create<AuthState>()(
             await get().fetchUserProfile();
             set({isLoggedIn: true, isLoading: false});
 
-            // NEW: Setup notification tags after successful login
+            // Setup notification tags after successful login
             try {
               await get().setupNotificationTags();
             } catch (notificationError) {
@@ -127,6 +128,22 @@ export const useAuthStore = create<AuthState>()(
               await deepLinkManager.handlePostLoginNavigation();
             } catch (error) {
               console.error('Error handling post-login navigation:', error);
+            }
+
+            // NEW: Handle post-login notification navigation
+            try {
+              console.log('🔔 Checking for notification navigation...');
+              const PushNotificationManager = (
+                await import('../utils/pushNotificationUtils')
+              ).default;
+              const pushManager = PushNotificationManager.getInstance();
+              await pushManager.handlePostLoginNotificationNavigation();
+            } catch (notificationError) {
+              console.error(
+                '❌ Error handling notification navigation:',
+                notificationError,
+              );
+              // Don't fail login if notification navigation fails
             }
 
             return true;
@@ -199,7 +216,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          // NEW: Clear notification tags before logout
+          // Clear notification tags before logout
           try {
             await get().clearNotificationTags();
           } catch (notificationError) {
@@ -279,7 +296,7 @@ export const useAuthStore = create<AuthState>()(
           if (response.success) {
             set({user: response.data.user, isLoading: false});
 
-            // NEW: Update notification tags when profile is updated
+            // Update notification tags when profile is updated
             try {
               await get().setupNotificationTags();
             } catch (notificationError) {
@@ -389,7 +406,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // NEW: Setup notification tags for targeting
+      // Setup notification tags for targeting
       setupNotificationTags: async () => {
         try {
           const {user} = get();
@@ -424,7 +441,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // NEW: Clear notification tags on logout
+      // Clear notification tags on logout
       clearNotificationTags: async () => {
         try {
           console.log('🔔 Clearing notification tags');
@@ -479,3 +496,5 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+export default useAuthStore;
