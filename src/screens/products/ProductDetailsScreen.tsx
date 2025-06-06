@@ -36,6 +36,12 @@ import AddToCartButton from '../../components/cart/AddToCartButton';
 
 const {width: screenWidth} = Dimensions.get('window');
 
+// Define the ProductImage interface
+interface ProductImage {
+  _id: string;
+  url: string;
+}
+
 type ProductDetailsScreenNavigationProp = StackNavigationProp<
   ProductStackParamList,
   'ProductDetails'
@@ -792,21 +798,23 @@ const ProductDetailsScreen = () => {
                   onScroll={handleImageScroll}
                   scrollEventThrottle={16}
                   style={styles.imageScrollView}>
-                  {productImages.map((image, index) => (
-                    <TouchableOpacity
-                      key={image._id}
-                      style={styles.imageContainer}
-                      onLongPress={() =>
-                        handleImageLongPress(getImageUrl(image.url))
-                      }
-                      activeOpacity={0.9}>
-                      <Image
-                        source={{uri: getImageUrl(image.url)}}
-                        style={styles.image}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  ))}
+                  {productImages.map(
+                    (image: ProductImage, imageIndex: number) => (
+                      <TouchableOpacity
+                        key={image._id}
+                        style={styles.imageContainer}
+                        onLongPress={() =>
+                          handleImageLongPress(getImageUrl(image.url))
+                        }
+                        activeOpacity={0.9}>
+                        <Image
+                          source={{uri: getImageUrl(image.url)}}
+                          style={styles.image}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                    ),
+                  )}
                 </ScrollView>
 
                 {/* Image Counter */}
@@ -821,17 +829,15 @@ const ProductDetailsScreen = () => {
                 {/* Dots Indicator */}
                 {productImages.length > 1 && (
                   <View style={styles.dotsContainer}>
-                    {productImages.map(
-                      (_: {_id: string; url: string}, index: number) => (
-                        <View
-                          key={index}
-                          style={[
-                            styles.dot,
-                            index === currentImageIndex && styles.activeDot,
-                          ]}
-                        />
-                      ),
-                    )}
+                    {productImages.map((_: ProductImage, dotIndex: number) => (
+                      <View
+                        key={dotIndex}
+                        style={[
+                          styles.dot,
+                          dotIndex === currentImageIndex && styles.activeDot,
+                        ]}
+                      />
+                    ))}
                   </View>
                 )}
               </>

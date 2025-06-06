@@ -1,6 +1,7 @@
 import React, {useContext, useState} from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
@@ -17,8 +18,13 @@ import {request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 const {width: screenWidth, height: screenHeight} = Dimensions.get('window');
 
+interface ProductImage {
+  url: string;
+  _id: string;
+}
+
 interface ProductImageGalleryProps {
-  images: Array<{url: string; _id: string}>;
+  images: Array<ProductImage>;
   containerHeight?: number;
   onImagePress?: (index: number) => void;
 }
@@ -202,11 +208,11 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         onScroll={handleScroll}
         scrollEventThrottle={16}
         style={styles.scrollView}>
-        {images.map((image, index) => (
+        {images.map((image: ProductImage, imageIndex: number) => (
           <TouchableOpacity
             key={image._id}
             style={styles.imageContainer}
-            onPress={() => handleImagePress(index)}
+            onPress={() => handleImagePress(imageIndex)}
             onLongPress={() => handleLongPress(getImageUrl(image.url))}
             activeOpacity={0.9}>
             <Image
@@ -230,10 +236,13 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       {/* Dots Indicator */}
       {images.length > 1 && (
         <View style={styles.dotsContainer}>
-          {images.map((_, index) => (
+          {images.map((_: ProductImage, dotIndex: number) => (
             <View
-              key={index}
-              style={[styles.dot, index === currentIndex && styles.activeDot]}
+              key={dotIndex}
+              style={[
+                styles.dot,
+                dotIndex === currentIndex && styles.activeDot,
+              ]}
             />
           ))}
         </View>
