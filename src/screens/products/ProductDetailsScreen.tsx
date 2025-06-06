@@ -101,8 +101,31 @@ const ProductDetailsScreen = () => {
     },
   });
 
-  // Determine if we're in landscape orientation
+  // Better landscape detection
   const isLandscape = windowWidth > windowHeight;
+  const isTablet = Math.min(windowWidth, windowHeight) > 600;
+
+  // Dynamic sizing based on device type and orientation
+  const getImageSectionWidth = () => {
+    if (!isLandscape) return '100%';
+    if (isTablet) return '55%'; // Tablets get more space for content
+    return '50%'; // Phones split evenly
+  };
+
+  const getContentSectionWidth = () => {
+    if (!isLandscape) return '100%';
+    if (isTablet) return '45%';
+    return '50%';
+  };
+
+  const getImageHeight = () => {
+    if (isLandscape) {
+      return windowHeight - insets.top - insets.bottom;
+    }
+    // Portrait mode - responsive based on screen size
+    if (isTablet) return windowHeight * 0.45;
+    return windowHeight * 0.4;
+  };
 
   // Function to get the full image URL
   const getImageUrl = (relativeUrl: string) => {
@@ -136,7 +159,15 @@ const ProductDetailsScreen = () => {
 
   const handleImageScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollPosition / screenWidth);
+    const imageWidth = isLandscape ? getImageSectionWidth() : screenWidth;
+    // Use proper width calculation for landscape
+    const actualWidth =
+      typeof imageWidth === 'string'
+        ? imageWidth === '100%'
+          ? screenWidth
+          : windowWidth * 0.5
+        : imageWidth;
+    const index = Math.round(scrollPosition / actualWidth);
     setCurrentImageIndex(index);
   };
 
@@ -278,6 +309,7 @@ const ProductDetailsScreen = () => {
       }, 500);
     }
   };
+
   const handleShare = async () => {
     if (!product) return;
 
@@ -321,19 +353,24 @@ const ProductDetailsScreen = () => {
     },
     contentWrapper: {
       flexDirection: isLandscape ? 'row' : 'column',
+      flex: 1,
     },
     imageSection: {
-      width: isLandscape ? '50%' : '100%',
-      height: isLandscape
-        ? windowHeight - insets.top - insets.bottom
-        : windowHeight * 0.4,
+      width: getImageSectionWidth(),
+      height: getImageHeight(),
       backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
     },
     imageScrollView: {
       flex: 1,
     },
     imageContainer: {
-      width: screenWidth,
+      width: isLandscape
+        ? typeof getImageSectionWidth() === 'string'
+          ? getImageSectionWidth() === '100%'
+            ? screenWidth
+            : windowWidth * 0.5
+          : getImageSectionWidth()
+        : screenWidth,
       height: '100%',
       justifyContent: 'center',
       alignItems: 'center',
@@ -351,7 +388,7 @@ const ProductDetailsScreen = () => {
     },
     imageCounter: {
       position: 'absolute',
-      top: 20,
+      top: insets.top + 10,
       right: 20,
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
       paddingHorizontal: 12,
@@ -386,120 +423,75 @@ const ProductDetailsScreen = () => {
       borderRadius: 5,
     },
     contentContainer: {
-      padding: 16,
-      width: isLandscape ? '50%' : '100%',
+      width: getContentSectionWidth(),
       flex: isLandscape ? 1 : undefined,
+      minHeight: isLandscape ? getImageHeight() : undefined,
+    },
+    contentScrollView: {
+      flex: 1,
+    },
+    contentPadding: {
+      padding: isLandscape && !isTablet ? 12 : 16,
+      paddingBottom: isLandscape ? insets.bottom + 16 : 16,
     },
     header: {
       marginBottom: 16,
     },
     title: {
       ...typography.heading2,
+      fontSize: isLandscape && !isTablet ? 20 : 24,
       marginBottom: 8,
       color: colors.text,
     },
     price: {
-      ...getFontStyle('bold', 24),
+      ...getFontStyle('bold', isLandscape && !isTablet ? 20 : 24),
       color: colors.primary,
       marginBottom: 16,
     },
     section: {
-      marginBottom: 20,
+      marginBottom: isLandscape && !isTablet ? 16 : 20,
     },
     sectionTitle: {
-      ...getFontStyle('semiBold', 18),
+      ...getFontStyle('semiBold', isLandscape && !isTablet ? 16 : 18),
       color: colors.text,
       marginBottom: 12,
     },
     description: {
       ...typography.body,
-      fontSize: 16,
-      lineHeight: 24,
+      fontSize: isLandscape && !isTablet ? 14 : 16,
+      lineHeight: isLandscape && !isTablet ? 20 : 24,
       color: colors.text,
     },
     ownerActions: {
-      flexDirection: 'row',
+      flexDirection: isLandscape && !isTablet ? 'column' : 'row',
       marginBottom: 16,
       gap: 12,
     },
     editButton: {
       backgroundColor: colors.primary,
-      padding: 12,
+      padding: isLandscape && !isTablet ? 10 : 12,
       borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      flex: 1,
+      flex: isLandscape && !isTablet ? undefined : 1,
       flexDirection: 'row',
     },
     editButtonText: {
-      ...getFontStyle('semiBold', 16),
+      ...getFontStyle('semiBold', isLandscape && !isTablet ? 14 : 16),
       color: '#FFFFFF',
       marginLeft: 8,
     },
     deleteButton: {
       backgroundColor: colors.error,
-      padding: 12,
+      padding: isLandscape && !isTablet ? 10 : 12,
       borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      flex: 1,
+      flex: isLandscape && !isTablet ? undefined : 1,
       flexDirection: 'row',
     },
     deleteButtonText: {
-      ...getFontStyle('semiBold', 16),
-      color: '#FFFFFF',
-      marginLeft: 8,
-    },
-    sellerContainer: {
-      marginBottom: 16,
-      padding: 16,
-      backgroundColor: isDarkMode ? colors.card : '#F5F5F7',
-      borderRadius: 12,
-    },
-    sellerTitle: {
-      ...getFontStyle('semiBold', 16),
-      color: colors.text,
-      marginBottom: 8,
-    },
-    sellerInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    sellerText: {
-      ...typography.body,
-      marginLeft: 8,
-      color: colors.text,
-    },
-    actionButtons: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    shareButton: {
-      backgroundColor: isDarkMode ? '#333333' : '#E9ECEF',
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flex: 1,
-      flexDirection: 'row',
-    },
-    shareButtonText: {
-      ...getFontStyle('semiBold', 16),
-      marginLeft: 8,
-      color: colors.text,
-    },
-    contactButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flex: 1,
-      flexDirection: 'row',
-    },
-    contactButtonText: {
-      ...getFontStyle('semiBold', 16),
+      ...getFontStyle('semiBold', isLandscape && !isTablet ? 14 : 16),
       color: '#FFFFFF',
       marginLeft: 8,
     },
@@ -532,11 +524,11 @@ const ProductDetailsScreen = () => {
     divider: {
       height: 1,
       backgroundColor: colors.border,
-      marginVertical: 16,
+      marginVertical: isLandscape && !isTablet ? 12 : 16,
     },
-    // NEW UI ELEMENTS FROM REPO
+    // Map section with responsive sizing
     mapSection: {
-      marginBottom: 20,
+      marginBottom: isLandscape && !isTablet ? 16 : 20,
     },
     mapContainer: {
       borderRadius: 12,
@@ -552,49 +544,26 @@ const ProductDetailsScreen = () => {
       marginRight: 8,
     },
     locationText: {
-      ...getFontStyle('medium', 16),
+      ...getFontStyle('medium', isLandscape && !isTablet ? 14 : 16),
       color: colors.text,
       flex: 1,
     },
     contactSection: {
-      marginBottom: 20,
+      marginBottom: isLandscape && !isTablet ? 16 : 20,
     },
     contactCard: {
       backgroundColor: isDarkMode ? colors.card : '#F8F9FA',
       borderRadius: 12,
-      padding: 16,
+      padding: isLandscape && !isTablet ? 12 : 16,
       marginBottom: 16,
     },
     shareSection: {
-      marginBottom: 20,
+      marginBottom: isLandscape && !isTablet ? 16 : 20,
     },
     shareCard: {
       backgroundColor: isDarkMode ? colors.card : '#F8F9FA',
       borderRadius: 12,
-      padding: 16,
-    },
-    enhancedButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginVertical: 4,
-    },
-    enhancedButtonSecondary: {
-      backgroundColor: isDarkMode ? '#333333' : '#E9ECEF',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    enhancedButtonText: {
-      ...getFontStyle('semiBold', 16),
-      color: '#FFFFFF',
-      marginLeft: 8,
-    },
-    enhancedButtonTextSecondary: {
-      color: colors.text,
+      padding: isLandscape && !isTablet ? 12 : 16,
     },
     cardShadow: {
       shadowColor: '#000',
@@ -616,26 +585,6 @@ const ProductDetailsScreen = () => {
       color: colors.primary,
       marginLeft: 8,
       flex: 1,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginTop: 12,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    statItem: {
-      alignItems: 'center',
-    },
-    statNumber: {
-      ...getFontStyle('bold', 16),
-      color: colors.primary,
-    },
-    statLabel: {
-      ...getFontStyle('regular', 12),
-      color: isDarkMode ? '#AAAAAA' : '#666666',
-      marginTop: 2,
     },
     modalOverlay: {
       flex: 1,
@@ -703,7 +652,7 @@ const ProductDetailsScreen = () => {
     cartContainer: {
       backgroundColor: isDarkMode ? colors.card : '#F8F9FA',
       borderRadius: 12,
-      padding: 16,
+      padding: isLandscape && !isTablet ? 12 : 16,
     },
     cartHeader: {
       marginBottom: 16,
@@ -712,7 +661,7 @@ const ProductDetailsScreen = () => {
       alignItems: 'center',
     },
     cartPrice: {
-      ...getFontStyle('bold', 28),
+      ...getFontStyle('bold', isLandscape && !isTablet ? 24 : 28),
       color: colors.primary,
       marginBottom: 4,
     },
@@ -782,12 +731,11 @@ const ProductDetailsScreen = () => {
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        testID="product-details-scroll">
+
+      {isLandscape ? (
+        // Landscape Layout - Fixed with proper scrolling
         <View style={styles.contentWrapper}>
-          {/* Enhanced Image Gallery Section */}
+          {/* Image Section */}
           <View style={styles.imageSection}>
             {productImages.length > 0 ? (
               <>
@@ -848,145 +796,354 @@ const ProductDetailsScreen = () => {
             )}
           </View>
 
-          {/* Content Section with Enhanced UI */}
+          {/* Content Section - Scrollable */}
           <View style={styles.contentContainer}>
-            {/* Product Header */}
-            <View style={styles.header}>
-              <Text style={styles.title} testID="product-title">
-                {product.title}
-              </Text>
-              <Text style={styles.price} testID="product-price">
-                ${product.price.toFixed(2)}
-              </Text>
-            </View>
-
-            {/* Owner Actions (Edit/Delete) */}
-            {isOwner && (
-              <View style={styles.ownerActions}>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={handleEditProduct}
-                  testID="edit-button">
-                  <Icon name="pencil" size={20} color="#FFFFFF" />
-                  <Text style={styles.editButtonText}>Edit</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={handleDeleteProduct}
-                  disabled={deleteProductMutation.isPending}
-                  testID="delete-button">
-                  {deleteProductMutation.isPending ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <>
-                      <Icon name="delete" size={20} color="#FFFFFF" />
-                      <Text style={styles.deleteButtonText}>Delete</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+            <ScrollView
+              style={styles.contentScrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.contentPadding}>
+              {/* Product Header */}
+              <View style={styles.header}>
+                <Text style={styles.title} testID="product-title">
+                  {product.title}
+                </Text>
+                <Text style={styles.price} testID="product-price">
+                  ${product.price.toFixed(2)}
+                </Text>
               </View>
-            )}
 
-            {/* Description Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description} testID="product-description">
-                {product.description}
-              </Text>
-            </View>
+              {/* Owner Actions (Edit/Delete) */}
+              {isOwner && (
+                <View style={styles.ownerActions}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditProduct}
+                    testID="edit-button">
+                    <Icon name="pencil" size={18} color="#FFFFFF" />
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
 
-            <View style={styles.divider} />
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeleteProduct}
+                    disabled={deleteProductMutation.isPending}
+                    testID="delete-button">
+                    {deleteProductMutation.isPending ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Icon name="delete" size={18} color="#FFFFFF" />
+                        <Text style={styles.deleteButtonText}>Delete</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
 
-            {/* Add to Cart Section (for non-owners) */}
-            {!isOwner && (
+              {/* Description Section */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Purchase</Text>
-                <View style={[styles.cartContainer, styles.cardShadow]}>
-                  <View style={styles.cartHeader}>
-                    <View style={styles.priceContainer}>
-                      <Text style={styles.cartPrice}>
-                        ${product.price.toFixed(2)}
-                      </Text>
-                      <Text style={styles.cartPriceLabel}>
-                        Free shipping available
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.description} testID="product-description">
+                  {product.description}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Add to Cart Section (for non-owners) */}
+              {!isOwner && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Purchase</Text>
+                  <View style={[styles.cartContainer, styles.cardShadow]}>
+                    <View style={styles.cartHeader}>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.cartPrice}>
+                          ${product.price.toFixed(2)}
+                        </Text>
+                        <Text style={styles.cartPriceLabel}>
+                          Free shipping available
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.cartActions}>
+                      <AddToCartButton
+                        product={product}
+                        size={isTablet ? 'large' : 'medium'}
+                        style={{flex: 1}}
+                      />
+                    </View>
+
+                    <View style={styles.cartInfo}>
+                      <Icon
+                        name="shield-check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.cartInfoText}>
+                        Secure checkout • 30-day return policy
                       </Text>
                     </View>
                   </View>
+                </View>
+              )}
 
-                  <View style={styles.cartActions}>
-                    <AddToCartButton
-                      product={product}
-                      size="large"
-                      style={{flex: 1}}
+              {/* Enhanced Location Map Section */}
+              {product.location && (
+                <View style={styles.mapSection}>
+                  <View style={styles.locationHeader}>
+                    <Icon
+                      name="map-marker"
+                      size={20}
+                      color={colors.primary}
+                      style={styles.locationIcon}
+                    />
+                    <Text style={styles.sectionTitle}>Location</Text>
+                  </View>
+                  <View style={[styles.mapContainer, styles.cardShadow]}>
+                    <ProductLocationMap
+                      location={product.location}
+                      height={isTablet ? 200 : 150}
+                      showOpenInMapsButton={true}
+                      productTitle={product.title}
                     />
                   </View>
+                </View>
+              )}
 
-                  <View style={styles.cartInfo}>
+              {/* Enhanced Contact Seller Section (for non-owners) */}
+              {!isOwner && (
+                <View style={styles.contactSection}>
+                  <Text style={styles.sectionTitle}>Contact Seller</Text>
+                  <View style={[styles.contactCard, styles.cardShadow]}>
+                    <ContactSeller product={product} />
+                  </View>
+                </View>
+              )}
+
+              {/* Enhanced Product Sharing Section */}
+              <View style={styles.shareSection}>
+                <Text style={styles.sectionTitle}>Share This Product</Text>
+                <View style={[styles.shareCard, styles.cardShadow]}>
+                  <ProductSharing product={product} />
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      ) : (
+        // Portrait Layout - Original scrollable layout
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          testID="product-details-scroll">
+          <View style={styles.contentWrapper}>
+            {/* Enhanced Image Gallery Section */}
+            <View style={styles.imageSection}>
+              {productImages.length > 0 ? (
+                <>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={handleImageScroll}
+                    scrollEventThrottle={16}
+                    style={styles.imageScrollView}>
+                    {productImages.map(
+                      (image: ProductImage, imageIndex: number) => (
+                        <TouchableOpacity
+                          key={image._id}
+                          style={styles.imageContainer}
+                          onLongPress={() =>
+                            handleImageLongPress(getImageUrl(image.url))
+                          }
+                          activeOpacity={0.9}>
+                          <Image
+                            source={{uri: getImageUrl(image.url)}}
+                            style={styles.image}
+                            resizeMode="contain"
+                          />
+                        </TouchableOpacity>
+                      ),
+                    )}
+                  </ScrollView>
+
+                  {/* Image Counter */}
+                  {productImages.length > 1 && (
+                    <View style={styles.imageCounter}>
+                      <Text style={styles.counterText}>
+                        {currentImageIndex + 1} / {productImages.length}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Dots Indicator */}
+                  {productImages.length > 1 && (
+                    <View style={styles.dotsContainer}>
+                      {productImages.map(
+                        (_: ProductImage, dotIndex: number) => (
+                          <View
+                            key={dotIndex}
+                            style={[
+                              styles.dot,
+                              dotIndex === currentImageIndex &&
+                                styles.activeDot,
+                            ]}
+                          />
+                        ),
+                      )}
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Icon name="image-off" size={40} color={colors.text} />
+                </View>
+              )}
+            </View>
+
+            {/* Content Section with Enhanced UI */}
+            <View style={styles.contentPadding}>
+              {/* Product Header */}
+              <View style={styles.header}>
+                <Text style={styles.title} testID="product-title">
+                  {product.title}
+                </Text>
+                <Text style={styles.price} testID="product-price">
+                  ${product.price.toFixed(2)}
+                </Text>
+              </View>
+
+              {/* Owner Actions (Edit/Delete) */}
+              {isOwner && (
+                <View style={styles.ownerActions}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditProduct}
+                    testID="edit-button">
+                    <Icon name="pencil" size={20} color="#FFFFFF" />
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeleteProduct}
+                    disabled={deleteProductMutation.isPending}
+                    testID="delete-button">
+                    {deleteProductMutation.isPending ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Icon name="delete" size={20} color="#FFFFFF" />
+                        <Text style={styles.deleteButtonText}>Delete</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Description Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.description} testID="product-description">
+                  {product.description}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Add to Cart Section (for non-owners) */}
+              {!isOwner && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Purchase</Text>
+                  <View style={[styles.cartContainer, styles.cardShadow]}>
+                    <View style={styles.cartHeader}>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.cartPrice}>
+                          ${product.price.toFixed(2)}
+                        </Text>
+                        <Text style={styles.cartPriceLabel}>
+                          Free shipping available
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.cartActions}>
+                      <AddToCartButton
+                        product={product}
+                        size="large"
+                        style={{flex: 1}}
+                      />
+                    </View>
+
+                    <View style={styles.cartInfo}>
+                      <Icon
+                        name="shield-check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.cartInfoText}>
+                        Secure checkout • 30-day return policy
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Enhanced Location Map Section */}
+              {product.location && (
+                <View style={styles.mapSection}>
+                  <View style={styles.locationHeader}>
                     <Icon
-                      name="shield-check"
-                      size={16}
+                      name="map-marker"
+                      size={24}
                       color={colors.primary}
+                      style={styles.locationIcon}
                     />
-                    <Text style={styles.cartInfoText}>
-                      Secure checkout • 30-day return policy
+                    <Text style={styles.sectionTitle}>Location</Text>
+                  </View>
+                  <View style={[styles.mapContainer, styles.cardShadow]}>
+                    <ProductLocationMap
+                      location={product.location}
+                      height={200}
+                      showOpenInMapsButton={true}
+                      productTitle={product.title}
+                    />
+                  </View>
+                  <View style={styles.infoContainer}>
+                    <Icon name="information" size={16} color={colors.primary} />
+                    <Text style={styles.infoText}>
+                      Tap the map to view directions and get more location
+                      details
                     </Text>
                   </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Enhanced Location Map Section */}
-            {product.location && (
-              <View style={styles.mapSection}>
-                <View style={styles.locationHeader}>
-                  <Icon
-                    name="map-marker"
-                    size={24}
-                    color={colors.primary}
-                    style={styles.locationIcon}
-                  />
-                  <Text style={styles.sectionTitle}>Location</Text>
-                </View>
-                <View style={[styles.mapContainer, styles.cardShadow]}>
-                  <ProductLocationMap
-                    location={product.location}
-                    height={200}
-                    showOpenInMapsButton={true}
-                    productTitle={product.title}
-                  />
-                </View>
-                <View style={styles.infoContainer}>
-                  <Icon name="information" size={16} color={colors.primary} />
-                  <Text style={styles.infoText}>
-                    Tap the map to view directions and get more location details
-                  </Text>
-                </View>
-              </View>
-            )}
+              <View style={styles.divider} />
 
-            <View style={styles.divider} />
-
-            {/* Enhanced Contact Seller Section (for non-owners) */}
-            {!isOwner && (
-              <View style={styles.contactSection}>
-                <Text style={styles.sectionTitle}>Contact Seller</Text>
-                <View style={[styles.contactCard, styles.cardShadow]}>
-                  <ContactSeller product={product} />
+              {/* Enhanced Contact Seller Section (for non-owners) */}
+              {!isOwner && (
+                <View style={styles.contactSection}>
+                  <Text style={styles.sectionTitle}>Contact Seller</Text>
+                  <View style={[styles.contactCard, styles.cardShadow]}>
+                    <ContactSeller product={product} />
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Enhanced Product Sharing Section */}
-            <View style={styles.shareSection}>
-              <Text style={styles.sectionTitle}>Share This Product</Text>
-              <View style={[styles.shareCard, styles.cardShadow]}>
-                <ProductSharing product={product} />
+              {/* Enhanced Product Sharing Section */}
+              <View style={styles.shareSection}>
+                <Text style={styles.sectionTitle}>Share This Product</Text>
+                <View style={[styles.shareCard, styles.cardShadow]}>
+                  <ProductSharing product={product} />
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
+
       {/* Save Image Modal */}
       <Modal
         visible={showSaveModal}
