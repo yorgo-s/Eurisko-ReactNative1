@@ -1,4 +1,3 @@
-// src/utils/notificationService.ts - SIMPLIFIED VERSION
 interface NotificationOptions {
   productId?: string;
   productTitle?: string;
@@ -19,7 +18,7 @@ const notificationService = (options: NotificationOptions = {}) => {
 
   // Add product-specific data if provided
   if (options.productId) {
-    payload.url = `https://awesomeshop.app/product/${options.productId}`;
+    payload.url = `awesomeshop://product/${options.productId}`;
     payload.data = {
       productId: options.productId,
       type: 'product_notification',
