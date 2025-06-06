@@ -12,8 +12,6 @@
 	<string>This app needs access to your camera to take photos of products.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to select product images.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app needs permission to save product images to your photo library.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to microphone for video recording.</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -40,13 +38,13 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-	  <key>NSAllowsArbitraryLoads</key>
+		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+	<string>BootSplash</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
