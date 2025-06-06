@@ -21,6 +21,8 @@ import {useCreateProduct} from '../../hooks/useProducts';
 import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import ImagePickerComponent from '../../components/common/ImagePicker';
 import {CameraImage} from '../../hooks/useCamera';
+// NEW: Import the PushNotificationManager
+import PushNotificationManager from '../../utils/pushNotificationUtils';
 
 // Validation schema
 const productSchema = z.object({
@@ -79,7 +81,8 @@ const AddProductScreen = () => {
   const selectedLocation = watch('location');
   const createProductMutation = useCreateProduct();
 
-  const onSubmit = (data: ProductFormData) => {
+  // NEW: Updated onSubmit function with notification integration
+  const onSubmit = async (data: ProductFormData) => {
     if (images.length === 0) {
       Alert.alert('Error', 'Please add at least one image');
       return;
@@ -101,12 +104,45 @@ const AddProductScreen = () => {
     };
 
     createProductMutation.mutate(productData, {
-      onSuccess: () => {
-        Alert.alert('Success', 'Product added successfully!', [
-          {text: 'OK', onPress: () => navigation.goBack()},
-        ]);
+      onSuccess: async response => {
+        try {
+          console.log('✅ Product created successfully:', response);
+
+          // Show success alert
+          Alert.alert('Success', 'Product added successfully!', [
+            {text: 'OK', onPress: () => navigation.goBack()},
+          ]);
+
+          // NEW: Send push notification about new product
+          if (response?.data) {
+            try {
+              console.log('🔔 Sending notification for new product...');
+              const pushManager = PushNotificationManager.getInstance();
+              await pushManager.sendProductAddedNotification(response.data);
+              console.log('✅ Product added notification sent successfully');
+            } catch (notificationError) {
+              console.error(
+                '❌ Error sending notification:',
+                notificationError,
+              );
+              // Note: We don't show an error to the user since the product was created successfully
+              // The notification failure is just logged for debugging
+            }
+          } else {
+            console.warn(
+              '⚠️ No product data in response, skipping notification',
+            );
+          }
+        } catch (error) {
+          console.error('❌ Error in success handler:', error);
+          // Still show success since product was created
+          Alert.alert('Success', 'Product added successfully!', [
+            {text: 'OK', onPress: () => navigation.goBack()},
+          ]);
+        }
       },
       onError: (error: any) => {
+        console.error('❌ Error creating product:', error);
         Alert.alert(
           'Error',
           error.response?.data?.message || 'Failed to add product',

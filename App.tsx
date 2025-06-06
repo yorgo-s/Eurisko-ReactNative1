@@ -11,6 +11,7 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from './src/api/queryClient';
 import AppLifecycleManager from './src/utils/appLifecycleManager';
 import DeepLinkManager from './src/utils/deepLinkUtils';
+import PushNotificationManager from './src/utils/pushNotificationUtils';
 import 'react-native-gesture-handler';
 import 'react-native-url-polyfill/auto';
 
@@ -19,6 +20,8 @@ function App(): React.JSX.Element {
   const [lifecycleManagerInitialized, setLifecycleManagerInitialized] =
     useState(false);
   const [deepLinkInitialized, setDeepLinkInitialized] = useState(false);
+  const [pushNotificationsInitialized, setPushNotificationsInitialized] =
+    useState(false);
 
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
@@ -30,22 +33,48 @@ function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    // Initialize lifecycle manager
-    const lifecycleManager = AppLifecycleManager.getInstance();
-    lifecycleManager.init();
-    setLifecycleManagerInitialized(true);
+    const initializeApp = async () => {
+      try {
+        // Initialize lifecycle manager
+        const lifecycleManager = AppLifecycleManager.getInstance();
+        lifecycleManager.init();
+        setLifecycleManagerInitialized(true);
 
-    // Initialize deep link manager
-    const deepLinkManager = DeepLinkManager.getInstance();
-    const deepLinkCleanup = deepLinkManager.init();
-    setDeepLinkInitialized(true);
+        // Initialize deep link manager
+        const deepLinkManager = DeepLinkManager.getInstance();
+        const deepLinkCleanup = deepLinkManager.init();
+        setDeepLinkInitialized(true);
 
-    // Cleanup function
-    return () => {
-      lifecycleManager.destroy();
-      if (deepLinkCleanup) {
-        deepLinkCleanup();
+        // Initialize push notifications
+        const pushNotificationManager = PushNotificationManager.getInstance();
+        await pushNotificationManager.initialize();
+        setPushNotificationsInitialized(true);
+
+        // Cleanup function will be returned for useEffect cleanup
+        return () => {
+          lifecycleManager.destroy();
+          if (deepLinkCleanup) {
+            deepLinkCleanup();
+          }
+        };
+      } catch (error) {
+        console.error('❌ Error initializing app:', error);
+        // Set initialized states to true even on error to prevent infinite loading
+        setLifecycleManagerInitialized(true);
+        setDeepLinkInitialized(true);
+        setPushNotificationsInitialized(true);
       }
+    };
+
+    const cleanup = initializeApp();
+
+    // Return cleanup function
+    return () => {
+      cleanup.then(cleanupFn => {
+        if (cleanupFn && typeof cleanupFn === 'function') {
+          cleanupFn();
+        }
+      });
     };
   }, []);
 
@@ -65,10 +94,24 @@ function App(): React.JSX.Element {
     }
   };
 
-  if (!fontLoaded || !lifecycleManagerInitialized || !deepLinkInitialized) {
+  // Check if all initialization is complete
+  const isAppReady =
+    fontLoaded &&
+    lifecycleManagerInitialized &&
+    deepLinkInitialized &&
+    pushNotificationsInitialized;
+
+  if (!isAppReady) {
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading application...</Text>
+        <Text style={styles.loadingSubtext}>
+          {!fontLoaded && '• Loading fonts...'}
+          {!lifecycleManagerInitialized &&
+            '• Initializing lifecycle manager...'}
+          {!deepLinkInitialized && '• Setting up deep links...'}
+          {!pushNotificationsInitialized && '• Configuring notifications...'}
+        </Text>
       </View>
     );
   }
@@ -95,6 +138,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  loadingSubtext: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

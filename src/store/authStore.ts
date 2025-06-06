@@ -30,6 +30,10 @@ interface AuthState {
   clearError: () => void;
   checkTokenExpiration: () => Promise<boolean>;
   refreshTokenIfNeeded: () => Promise<boolean>;
+
+  // NEW: Notification-related methods
+  setupNotificationTags: () => Promise<void>;
+  clearNotificationTags: () => Promise<void>;
 }
 
 // Helper function to calculate token expiration time
@@ -100,6 +104,18 @@ export const useAuthStore = create<AuthState>()(
             // After successful login, fetch user profile
             await get().fetchUserProfile();
             set({isLoggedIn: true, isLoading: false});
+
+            // NEW: Setup notification tags after successful login
+            try {
+              await get().setupNotificationTags();
+            } catch (notificationError) {
+              console.error(
+                '❌ Error setting up notification tags:',
+                notificationError,
+              );
+              // Don't fail login if notifications fail
+            }
+
             console.log('Login flow complete, isLoggedIn set to true');
 
             // Handle post-login navigation for deep links
@@ -183,6 +199,17 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
+          // NEW: Clear notification tags before logout
+          try {
+            await get().clearNotificationTags();
+          } catch (notificationError) {
+            console.error(
+              '❌ Error clearing notification tags:',
+              notificationError,
+            );
+            // Don't fail logout if notifications fail
+          }
+
           await authApi.logout();
         } catch (error) {
           console.error('Logout error:', error);
@@ -251,6 +278,18 @@ export const useAuthStore = create<AuthState>()(
 
           if (response.success) {
             set({user: response.data.user, isLoading: false});
+
+            // NEW: Update notification tags when profile is updated
+            try {
+              await get().setupNotificationTags();
+            } catch (notificationError) {
+              console.error(
+                '❌ Error updating notification tags:',
+                notificationError,
+              );
+              // Don't fail profile update if notifications fail
+            }
+
             console.log('Profile updated successfully');
             return true;
           } else {
@@ -347,6 +386,67 @@ export const useAuthStore = create<AuthState>()(
           }
 
           return false;
+        }
+      },
+
+      // NEW: Setup notification tags for targeting
+      setupNotificationTags: async () => {
+        try {
+          const {user} = get();
+          if (!user) {
+            console.log('🔔 No user found, skipping notification tags setup');
+            return;
+          }
+
+          console.log('🔔 Setting up notification tags for user:', user.email);
+
+          // Dynamically import to avoid circular dependencies
+          const PushNotificationManager = (
+            await import('../utils/pushNotificationUtils')
+          ).default;
+          const pushManager = PushNotificationManager.getInstance();
+
+          // Set user tags for targeting
+          await pushManager.setExternalUserId(user.id);
+          await pushManager.setUserTag('userId', user.id);
+          await pushManager.setUserTag('email', user.email);
+          await pushManager.setUserTag('firstName', user.firstName);
+          await pushManager.setUserTag('lastName', user.lastName);
+          await pushManager.setUserTag(
+            'isEmailVerified',
+            user.isEmailVerified.toString(),
+          );
+
+          console.log('✅ Notification tags set successfully');
+        } catch (error) {
+          console.error('❌ Error setting notification tags:', error);
+          // Don't throw error to avoid breaking auth flow
+        }
+      },
+
+      // NEW: Clear notification tags on logout
+      clearNotificationTags: async () => {
+        try {
+          console.log('🔔 Clearing notification tags');
+
+          // Dynamically import to avoid circular dependencies
+          const PushNotificationManager = (
+            await import('../utils/pushNotificationUtils')
+          ).default;
+          const pushManager = PushNotificationManager.getInstance();
+
+          // Remove user tags
+          await pushManager.removeExternalUserId();
+          await pushManager.removeUserTag('userId');
+          await pushManager.removeUserTag('email');
+          await pushManager.removeUserTag('firstName');
+          await pushManager.removeUserTag('lastName');
+          await pushManager.removeUserTag('isEmailVerified');
+
+          console.log('✅ Notification tags cleared successfully');
+        } catch (error) {
+          console.error('❌ Error clearing notification tags:', error);
+          // Don't throw error to avoid breaking auth flow
         }
       },
 
