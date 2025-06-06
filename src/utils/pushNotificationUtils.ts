@@ -1,6 +1,6 @@
-// src/utils/pushNotificationUtils.ts - FIXED VERSION
+// src/utils/pushNotificationUtils.ts - ENHANCED VERSION FOR NATIVE NOTIFICATIONS
 import {OneSignal, LogLevel} from 'react-native-onesignal';
-import {Alert, Platform} from 'react-native';
+import {Platform} from 'react-native';
 import {Product} from '../api/products';
 import Config from 'react-native-config';
 
@@ -46,8 +46,8 @@ export class PushNotificationManager {
       const permission = await OneSignal.Notifications.requestPermission(true);
       console.log('🔔 Notification permission result:', permission);
 
-      // Set up event listeners
-      this.setupEventListeners();
+      // Set up event listeners for native notifications
+      this.setupNativeNotificationHandlers();
 
       // Check initial subscription state
       await this.checkSubscriptionState();
@@ -66,59 +66,156 @@ export class PushNotificationManager {
     }
   }
 
-  private setupEventListeners(): void {
+  private setupNativeNotificationHandlers(): void {
+    console.log('🔔 Setting up native notification handlers...');
+
     // Handle notification received while app is in foreground
     OneSignal.Notifications.addEventListener('foregroundWillDisplay', event => {
-      console.log('🔔 Notification will display in foreground:', event);
+      console.log(
+        '🔔 Notification received in foreground:',
+        event.notification,
+      );
 
-      // Show the notification (you can customize this)
+      // ALWAYS show native notification (no alerts)
+      // The notification will appear as a native notification banner/popup
       event.preventDefault();
       event.notification.display();
+
+      console.log('📱 Native notification displayed in foreground');
     });
 
-    // Handle notification opened/clicked
+    // Handle notification clicked/opened
     OneSignal.Notifications.addEventListener('click', event => {
-      console.log('🔔 Notification clicked:', event);
-      this.handleNotificationOpened(event);
+      console.log('🔔 Notification clicked:', event.notification);
+      this.handleNotificationClick(event.notification);
     });
 
     // Handle permission changes
     OneSignal.Notifications.addEventListener('permissionChange', permission => {
-      console.log('🔔 Permission changed:', permission);
+      console.log('🔔 Notification permission changed:', permission);
     });
 
-    // FIXED: Use correct event listener for push subscription changes
+    // Handle user state changes (subscription, etc.)
     OneSignal.User.addEventListener('change', event => {
       console.log('🔔 User state changed:', event);
-      // Note: event structure may vary, so we log the full event for debugging
     });
+
+    console.log('✅ Native notification handlers set up');
   }
 
-  private async handleNotificationOpened(event: any): Promise<void> {
+  private async handleNotificationClick(notification: any): Promise<void> {
     try {
-      const additionalData = event.notification.additionalData;
-      console.log('🔔 Notification additional data:', additionalData);
+      console.log('🔔 Processing notification click...');
+      console.log('📱 Notification data:', notification);
 
-      if (additionalData?.productId) {
-        console.log('🔔 Navigating to product:', additionalData.productId);
-        await this.navigateToProduct(additionalData.productId);
-      } else if (additionalData?.screen) {
-        console.log('🔔 Navigating to screen:', additionalData.screen);
-        await this.navigateToScreen(additionalData.screen);
+      // Extract data from notification
+      const additionalData = notification.additionalData || {};
+      const {productId, type, screen} = additionalData;
+
+      console.log('🎯 Notification action data:', {productId, type, screen});
+
+      // Handle different notification types
+      if (type === 'product_added' && productId) {
+        console.log('🛍️ Handling product notification click:', productId);
+        await this.handleProductNotificationClick(productId);
+      } else if (screen) {
+        console.log('📱 Handling screen navigation:', screen);
+        await this.handleScreenNavigation(screen);
       } else {
-        console.log('🔔 No specific navigation data, opening app normally');
+        console.log('🏠 No specific action, opening app normally');
+        await this.handleDefaultNavigation();
       }
     } catch (error: unknown) {
-      console.error('❌ Error handling notification:', error);
+      console.error('❌ Error handling notification click:', error);
+    }
+  }
+
+  private async handleProductNotificationClick(
+    productId: string,
+  ): Promise<void> {
+    try {
+      console.log('🛍️ Handling product notification for:', productId);
+
+      // Check authentication state
+      const {useAuthStore} = await import('../store/authStore');
+      const authState = useAuthStore.getState();
+      const isLoggedIn = authState.isLoggedIn;
+
+      console.log('👤 User login status:', isLoggedIn);
+
+      if (isLoggedIn) {
+        // User is logged in - navigate directly to product
+        console.log('✅ User logged in, navigating to product');
+        await this.navigateToProduct(productId);
+      } else {
+        // User not logged in - store intended destination and go to login
+        console.log('🔒 User not logged in, storing product destination');
+        await this.storeIntendedProductDestination(productId);
+        await this.navigateToLogin();
+      }
+    } catch (error: unknown) {
+      console.error('❌ Error handling product notification:', error);
+    }
+  }
+
+  private async handleScreenNavigation(screen: string): Promise<void> {
+    try {
+      console.log('📱 Navigating to screen:', screen);
+
+      // Check auth for protected screens
+      const protectedScreens = ['cart', 'profile'];
+      const needsAuth = protectedScreens.includes(screen.toLowerCase());
+
+      if (needsAuth) {
+        const {useAuthStore} = await import('../store/authStore');
+        const isLoggedIn = useAuthStore.getState().isLoggedIn;
+
+        if (!isLoggedIn) {
+          console.log('🔒 Screen requires auth, storing destination');
+          await this.storeIntendedScreenDestination(screen);
+          await this.navigateToLogin();
+          return;
+        }
+      }
+
+      await this.navigateToScreen(screen);
+    } catch (error: unknown) {
+      console.error('❌ Error handling screen navigation:', error);
+    }
+  }
+
+  private async handleDefaultNavigation(): Promise<void> {
+    try {
+      console.log('🏠 Handling default navigation');
+
+      const {useAuthStore} = await import('../store/authStore');
+      const isLoggedIn = useAuthStore.getState().isLoggedIn;
+
+      if (isLoggedIn) {
+        await this.navigateToProducts();
+      } else {
+        await this.navigateToLogin();
+      }
+    } catch (error: unknown) {
+      console.error('❌ Error handling default navigation:', error);
     }
   }
 
   private async navigateToProduct(productId: string): Promise<void> {
     try {
+      console.log('🔗 Navigating to product:', productId);
+
       const {default: DeepLinkManager} = await import('./deepLinkUtils');
       const deepLinkManager = DeepLinkManager.getInstance();
+
+      // Use deep link to navigate to product
       const productUrl = `awesomeshop://product/${productId}`;
-      deepLinkManager.testDeepLink(productUrl);
+      console.log('🎯 Using deep link:', productUrl);
+
+      // Small delay to ensure app is ready
+      setTimeout(() => {
+        deepLinkManager.testDeepLink(productUrl);
+      }, 500);
     } catch (error: unknown) {
       console.error('❌ Error navigating to product:', error);
     }
@@ -126,271 +223,156 @@ export class PushNotificationManager {
 
   private async navigateToScreen(screen: string): Promise<void> {
     try {
+      console.log('🔗 Navigating to screen:', screen);
+
       const {default: DeepLinkManager} = await import('./deepLinkUtils');
       const deepLinkManager = DeepLinkManager.getInstance();
+
       const screenUrl = `awesomeshop://${screen.toLowerCase()}`;
-      deepLinkManager.testDeepLink(screenUrl);
+      console.log('🎯 Using deep link:', screenUrl);
+
+      setTimeout(() => {
+        deepLinkManager.testDeepLink(screenUrl);
+      }, 500);
     } catch (error: unknown) {
       console.error('❌ Error navigating to screen:', error);
     }
   }
 
-  // COMPREHENSIVE TESTING METHODS
-  async testBasicNotification(): Promise<void> {
+  private async navigateToLogin(): Promise<void> {
     try {
-      console.log('🧪 Testing basic notification...');
+      console.log('🔗 Navigating to login');
 
-      const userId = await this.getUserId();
-      if (!userId) {
-        Alert.alert(
-          'Error',
-          'No OneSignal User ID found. Make sure notifications are initialized.',
-        );
-        return;
-      }
+      const {default: DeepLinkManager} = await import('./deepLinkUtils');
+      const deepLinkManager = DeepLinkManager.getInstance();
 
-      console.log('📱 Current OneSignal User ID:', userId);
-
-      Alert.alert(
-        'Test Notification Ready',
-        `OneSignal User ID: ${userId}\n\nGo to OneSignal dashboard > Messages > New Push and target this User ID to test.`,
-        [
-          {text: 'OK'},
-          {
-            text: 'Copy User ID',
-            onPress: () => {
-              console.log('Copy this User ID:', userId);
-              Alert.alert(
-                'User ID Copied',
-                `User ID: ${userId}\nCopied to console for manual copying.`,
-              );
-            },
-          },
-        ],
-      );
+      // Small delay to ensure app is ready
+      setTimeout(() => {
+        deepLinkManager.testDeepLink('awesomeshop://login');
+      }, 500);
     } catch (error: unknown) {
-      console.error('❌ Test notification error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Test failed: ${errorMessage}`);
+      console.error('❌ Error navigating to login:', error);
     }
   }
 
-  async testProductNotification(
+  private async navigateToProducts(): Promise<void> {
+    try {
+      console.log('🔗 Navigating to products');
+
+      const {default: DeepLinkManager} = await import('./deepLinkUtils');
+      const deepLinkManager = DeepLinkManager.getInstance();
+
+      setTimeout(() => {
+        deepLinkManager.testDeepLink('awesomeshop://products');
+      }, 500);
+    } catch (error: unknown) {
+      console.error('❌ Error navigating to products:', error);
+    }
+  }
+
+  private async storeIntendedProductDestination(
     productId: string,
-    productTitle: string,
   ): Promise<void> {
     try {
-      console.log('🧪 Testing product notification for:', productTitle);
+      const AsyncStorage = (
+        await import('@react-native-async-storage/async-storage')
+      ).default;
 
-      const notificationData = {
-        type: 'product_added',
+      const destination = {
+        type: 'product',
         productId: productId,
-        title: '🛍️ New Product Added!',
-        message: `Check out ${productTitle}`,
+        timestamp: Date.now(),
       };
 
-      console.log('📱 Simulated notification data:', notificationData);
-
-      // Test the navigation
-      await this.handleTestNotificationClick(notificationData);
-    } catch (error: unknown) {
-      console.error('❌ Test product notification error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Test failed: ${errorMessage}`);
-    }
-  }
-
-  async handleTestNotificationClick(data: any): Promise<void> {
-    try {
-      console.log('🧪 Testing notification click handling:', data);
-
-      if (data.productId) {
-        await this.navigateToProduct(data.productId);
-      }
-
-      Alert.alert(
-        'Test Notification Clicked',
-        `Would navigate to product: ${data.productId}`,
-        [{text: 'OK'}],
+      await AsyncStorage.setItem(
+        '@notification_destination',
+        JSON.stringify(destination),
       );
+      console.log('💾 Stored notification destination:', destination);
     } catch (error: unknown) {
-      console.error('❌ Error handling test notification:', error);
+      console.error('❌ Error storing product destination:', error);
     }
   }
 
-  async checkNotificationPermissions(): Promise<boolean> {
+  private async storeIntendedScreenDestination(screen: string): Promise<void> {
     try {
-      const permission = await OneSignal.Notifications.getPermissionAsync();
-      console.log('🔔 Notification permission status:', permission);
+      const AsyncStorage = (
+        await import('@react-native-async-storage/async-storage')
+      ).default;
 
-      if (!permission) {
-        console.log('⚠️ Requesting notification permission...');
-        const granted = await OneSignal.Notifications.requestPermission(true);
-        console.log('📱 Permission granted:', granted);
-        return granted;
-      }
+      const destination = {
+        type: 'screen',
+        screen: screen,
+        timestamp: Date.now(),
+      };
 
-      return true;
-    } catch (error: unknown) {
-      console.error('❌ Permission check error:', error);
-      return false;
-    }
-  }
-
-  async debugUserInfo(): Promise<void> {
-    try {
-      const userId = await OneSignal.User.getOnesignalId();
-      const pushSubscription = OneSignal.User.pushSubscription;
-      const tags = await OneSignal.User.getTags();
-
-      console.log('🔍 OneSignal Debug Info:');
-      console.log('  User ID:', userId);
-      console.log('  Push Subscription:', pushSubscription);
-      console.log('  User Tags:', tags);
-
-      const hasToken =
-        pushSubscription &&
-        typeof pushSubscription === 'object' &&
-        'token' in pushSubscription;
-      const isOptedIn =
-        pushSubscription &&
-        typeof pushSubscription === 'object' &&
-        'optedIn' in pushSubscription;
-
-      Alert.alert(
-        'OneSignal Debug Info',
-        `User ID: ${userId || 'Not available'}\nPush Token: ${
-          hasToken ? 'Available' : 'Not available'
-        }\nSubscribed: ${isOptedIn ? 'Yes' : 'No'}`,
-        [{text: 'OK'}],
+      await AsyncStorage.setItem(
+        '@notification_destination',
+        JSON.stringify(destination),
       );
+      console.log('💾 Stored screen destination:', destination);
     } catch (error: unknown) {
-      console.error('❌ Debug info error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Debug failed: ${errorMessage}`);
+      console.error('❌ Error storing screen destination:', error);
     }
   }
 
-  async testDeepLinkNavigation(): Promise<void> {
+  // Method to be called after successful login
+  async handlePostLoginNotificationNavigation(): Promise<void> {
     try {
-      console.log('🧪 Testing deep link navigation...');
+      const AsyncStorage = (
+        await import('@react-native-async-storage/async-storage')
+      ).default;
+      const storedDestination = await AsyncStorage.getItem(
+        '@notification_destination',
+      );
 
-      const testScenarios = [
-        {type: 'product', productId: '0001', title: 'Test Product Navigation'},
-        {type: 'cart', title: 'Test Cart Navigation'},
-        {type: 'profile', title: 'Test Profile Navigation'},
-      ];
+      if (storedDestination) {
+        const destination = JSON.parse(storedDestination);
+        console.log('📱 Found stored notification destination:', destination);
 
-      for (const scenario of testScenarios) {
-        console.log(`🎯 Testing ${scenario.type} navigation...`);
+        // Check if destination is not too old (within 10 minutes)
+        const now = Date.now();
+        const age = now - destination.timestamp;
+        const maxAge = 10 * 60 * 1000; // 10 minutes
 
-        if (scenario.type === 'product' && scenario.productId) {
-          await this.navigateToProduct(scenario.productId);
-        } else {
-          await this.navigateToScreen(scenario.type);
+        if (age > maxAge) {
+          console.log('⏰ Stored destination too old, ignoring');
+          await AsyncStorage.removeItem('@notification_destination');
+          return;
         }
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+        // Clear the stored destination
+        await AsyncStorage.removeItem('@notification_destination');
 
-      Alert.alert(
-        'Deep Link Test Complete',
-        'Check console for navigation logs',
-      );
+        // Navigate based on stored destination
+        if (destination.type === 'product' && destination.productId) {
+          console.log(
+            '🛍️ Navigating to stored product:',
+            destination.productId,
+          );
+          setTimeout(() => {
+            this.navigateToProduct(destination.productId);
+          }, 1000);
+        } else if (destination.type === 'screen' && destination.screen) {
+          console.log('📱 Navigating to stored screen:', destination.screen);
+          setTimeout(() => {
+            this.navigateToScreen(destination.screen);
+          }, 1000);
+        }
+      } else {
+        console.log('📱 No stored notification destination found');
+      }
     } catch (error: unknown) {
-      console.error('❌ Deep link test error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Deep link test failed: ${errorMessage}`);
+      console.error(
+        '❌ Error handling post-login notification navigation:',
+        error,
+      );
     }
   }
 
-  async simulateBackendNotification(productData: any): Promise<void> {
-    try {
-      if (!ONESIGNAL_REST_API_KEY) {
-        console.warn(
-          '⚠️ OneSignal REST API key not configured - using simulation',
-        );
-
-        const simulatedNotification = {
-          app_id: ONESIGNAL_APP_ID,
-          included_segments: ['Subscribed Users'],
-          headings: {en: '🛍️ New Product Added!'},
-          contents: {
-            en: `Check out ${
-              productData.title
-            } for $${productData.price.toFixed(2)}`,
-          },
-          data: {
-            productId: productData._id,
-            type: 'product_added',
-          },
-        };
-
-        console.log(
-          '🎭 Simulating backend notification:',
-          simulatedNotification,
-        );
-
-        Alert.alert(
-          'Backend Simulation',
-          `Simulated sending notification for: ${productData.title}\n\nIn production, this would be sent from your backend server.`,
-          [{text: 'OK'}],
-        );
-        return;
-      }
-
-      // Send real notification if REST API key is available
-      const notificationData = {
-        app_id: ONESIGNAL_APP_ID,
-        included_segments: ['Subscribed Users'],
-        headings: {en: '🛍️ New Product Added!'},
-        contents: {
-          en: `Check out ${productData.title} for $${productData.price.toFixed(
-            2,
-          )}`,
-        },
-        data: {
-          productId: productData._id,
-          type: 'product_added',
-        },
-      };
-
-      const response = await fetch(
-        'https://onesignal.com/api/v1/notifications',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
-          },
-          body: JSON.stringify(notificationData),
-        },
-      );
-
-      const result = await response.json();
-      console.log('✅ Notification sent:', result);
-
-      Alert.alert(
-        'Notification Sent!',
-        `Successfully sent notification for ${productData.title}`,
-        [{text: 'OK'}],
-      );
-    } catch (error: unknown) {
-      console.error('❌ Backend simulation error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to send notification: ${errorMessage}`);
-    }
-  }
-
-  // EXISTING METHODS WITH IMPROVEMENTS
+  // EXISTING METHODS (keeping all the existing functionality)
   async checkSubscriptionState(): Promise<any> {
     try {
-      // FIXED: Use the correct way to access push subscription
       const subscription = OneSignal.User.pushSubscription;
       console.log('🔔 Current subscription state:', subscription);
       return subscription;
@@ -408,94 +390,6 @@ export class PushNotificationManager {
     } catch (error: unknown) {
       console.error('❌ Error checking permission:', error);
       return false;
-    }
-  }
-
-  async testNotificationFlow(): Promise<void> {
-    try {
-      console.log('🧪 Testing complete notification flow...');
-
-      if (!this.isInitialized) {
-        throw new Error('OneSignal not initialized');
-      }
-
-      const hasPermission = await this.checkPermissionStatus();
-      const subscription = await this.checkSubscriptionState();
-      const userId = await this.getUserId();
-      const tags = await this.getUserTags();
-
-      console.log('🔔 Flow test results:', {
-        hasPermission,
-        subscription,
-        userId,
-        tags,
-      });
-
-      await this.setUserTag('test_mode', 'true');
-
-      console.log('✅ Notification flow test completed');
-
-      // FIXED: Safe property access for subscription status
-      const isOptedIn =
-        subscription &&
-        typeof subscription === 'object' &&
-        'optedIn' in subscription
-          ? (subscription as any).optedIn
-          : false;
-
-      Alert.alert(
-        'Notification Test Results',
-        `Permission: ${hasPermission ? 'Granted' : 'Denied'}\nUser ID: ${
-          userId || 'Not available'
-        }\nSubscribed: ${isOptedIn ? 'Yes' : 'No'}\nTest mode tag set: Yes`,
-        [{text: 'OK'}],
-      );
-    } catch (error: unknown) {
-      console.error('❌ Notification flow test failed:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Test Failed', errorMessage);
-    }
-  }
-
-  async sendProductAddedNotification(product: Product): Promise<void> {
-    try {
-      if (!ONESIGNAL_APP_ID) {
-        console.warn('⚠️ OneSignal App ID not configured');
-        return;
-      }
-
-      console.log('🔔 Preparing product notification for:', product.title);
-
-      const imageUrl = product.images?.[0]?.url
-        ? product.images[0].url.startsWith('http')
-          ? product.images[0].url
-          : `https://backend-practice.eurisko.me${product.images[0].url}`
-        : undefined;
-
-      const notificationData = {
-        app_id: ONESIGNAL_APP_ID,
-        included_segments: ['Subscribed Users'],
-        headings: {en: '🛍️ New Product Added!'},
-        contents: {
-          en: `Check out ${product.title} for $${product.price.toFixed(2)}`,
-        },
-        data: {
-          productId: product._id,
-          type: 'product_added',
-        },
-        large_icon: imageUrl,
-        big_picture: imageUrl,
-        buttons: [
-          {id: 'view_product', text: 'View Product'},
-          {id: 'dismiss', text: 'Dismiss'},
-        ],
-      };
-
-      console.log('🔔 Product notification prepared:', notificationData);
-      console.log('⚠️ Note: Send this from your backend in production');
-    } catch (error: unknown) {
-      console.error('❌ Error preparing product notification:', error);
     }
   }
 
@@ -562,7 +456,6 @@ export class PushNotificationManager {
       const subscription = OneSignal.User.pushSubscription;
       const userId = await this.getUserId();
 
-      // FIXED: Safe property access with proper type checking
       const isOptedIn =
         subscription &&
         typeof subscription === 'object' &&
@@ -577,6 +470,56 @@ export class PushNotificationManager {
     } catch (error: unknown) {
       console.error('❌ Error checking notification capability:', error);
       return false;
+    }
+  }
+
+  // TESTING METHODS (useful for development)
+  async testProductNotification(
+    productId: string,
+    productTitle: string,
+  ): Promise<void> {
+    console.log('🧪 Testing product notification flow...');
+
+    // Simulate notification data
+    const mockNotification = {
+      additionalData: {
+        type: 'product_added',
+        productId: productId,
+      },
+      title: '🛍️ New Product Added!',
+      body: `Check out ${productTitle}`,
+    };
+
+    console.log(
+      '📱 Simulating notification click with data:',
+      mockNotification,
+    );
+    await this.handleNotificationClick(mockNotification);
+  }
+
+  async debugNotificationSetup(): Promise<void> {
+    try {
+      console.log('🔍 Debugging notification setup...');
+
+      const userId = await this.getUserId();
+      const permission = await this.checkPermissionStatus();
+      const subscription = await this.checkSubscriptionState();
+      const tags = await this.getUserTags();
+      const canSend = await this.canSendNotifications();
+
+      const debugInfo = {
+        userId,
+        permission,
+        subscription,
+        tags,
+        canSend,
+        isInitialized: this.isInitialized,
+      };
+
+      console.log('🔔 Notification Debug Info:', debugInfo);
+      return debugInfo;
+    } catch (error: unknown) {
+      console.error('❌ Error debugging notification setup:', error);
     }
   }
 }
