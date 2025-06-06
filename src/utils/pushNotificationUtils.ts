@@ -250,7 +250,6 @@ export class PushNotificationManager {
       console.log('  Push Subscription:', pushSubscription);
       console.log('  User Tags:', tags);
 
-      // FIXED: Safe property access with proper type checking
       const hasToken =
         pushSubscription &&
         typeof pushSubscription === 'object' &&
