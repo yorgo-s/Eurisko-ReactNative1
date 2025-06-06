@@ -1,4 +1,4 @@
-// src/utils/deepLinkUtils.ts
+// src/utils/deepLinkUtils.ts - FIXED VERSION
 import {Linking} from 'react-native';
 import {NavigationContainerRef} from '@react-navigation/native';
 
@@ -34,7 +34,7 @@ export class DeepLinkManager {
       setTimeout(() => {
         this.handleDeepLink(this.pendingURL!);
         this.pendingURL = null;
-      }, 1000); // Give navigation time to fully initialize
+      }, 1000);
     }
   }
 
@@ -47,7 +47,6 @@ export class DeepLinkManager {
         if (url) {
           console.log('📱 App opened with initial URL:', url);
           if (this.isNavigationReady && this.navigationRef) {
-            // Small delay to ensure everything is initialized
             setTimeout(() => {
               this.handleDeepLink(url);
             }, 1500);
@@ -73,7 +72,6 @@ export class DeepLinkManager {
 
     const subscription = Linking.addEventListener('url', handleUrl);
 
-    // Return cleanup function
     return () => {
       subscription?.remove();
     };
@@ -115,11 +113,18 @@ export class DeepLinkManager {
 
   private parseCustomScheme(url: string): DeepLinkParams {
     try {
-      // Format: awesomeshop://product/123 or awesomeshop://products/123
-      const urlObj = new URL(url);
-      const pathSegments = urlObj.pathname
+      console.log('🔍 Parsing custom scheme URL:', url);
+
+      // For custom schemes, we need to handle them differently
+      // Format: awesomeshop://product/123 or awesomeshop://cart
+
+      // Remove the scheme and get the path
+      const urlWithoutScheme = url.replace('awesomeshop://', '');
+      const pathSegments = urlWithoutScheme
         .split('/')
         .filter(segment => segment);
+
+      console.log('🔍 Path segments:', pathSegments);
 
       const params: DeepLinkParams = {};
 
@@ -132,19 +137,28 @@ export class DeepLinkManager {
         ) {
           params.productId = pathSegments[1];
           params.screen = 'ProductDetails';
+          console.log('🔍 Detected product link:', params);
         } else if (firstSegment === 'cart') {
           params.screen = 'Cart';
+          console.log('🔍 Detected cart link:', params);
         } else if (firstSegment === 'profile') {
           params.screen = 'Profile';
+          console.log('🔍 Detected profile link:', params);
         } else if (firstSegment === 'products') {
           params.screen = 'Products';
+          console.log('🔍 Detected products list link:', params);
         }
       }
 
-      // Parse query parameters
-      urlObj.searchParams.forEach((value, key) => {
-        params[key] = value;
-      });
+      // Parse query parameters if present
+      const queryStartIndex = url.indexOf('?');
+      if (queryStartIndex !== -1) {
+        const queryString = url.substring(queryStartIndex + 1);
+        const searchParams = new URLSearchParams(queryString);
+        searchParams.forEach((value, key) => {
+          params[key] = value;
+        });
+      }
 
       return params;
     } catch (error) {
@@ -155,11 +169,14 @@ export class DeepLinkManager {
 
   private parseHTTPSUrl(url: string): DeepLinkParams {
     try {
-      // Format: https://awesomeshop.app/product/123
+      console.log('🔍 Parsing HTTPS URL:', url);
+
       const urlObj = new URL(url);
       const pathSegments = urlObj.pathname
         .split('/')
         .filter(segment => segment);
+
+      console.log('🔍 HTTPS Path segments:', pathSegments);
 
       const params: DeepLinkParams = {};
 
@@ -200,21 +217,17 @@ export class DeepLinkManager {
     }
 
     try {
-      // Import auth store to check login status
       const {useAuthStore} = await import('../store/authStore');
       const isLoggedIn = useAuthStore.getState().isLoggedIn;
 
       console.log('👤 User logged in:', isLoggedIn);
       console.log('🎯 Navigation params:', params);
 
-      // If trying to access product details
       if (params.screen === 'ProductDetails' && params.productId) {
         if (isLoggedIn) {
-          // User is logged in, navigate to product details
           console.log('✅ Navigating to product details for logged in user');
           this.navigateToProductDetails(params.productId);
         } else {
-          // User not logged in, store the intended destination and go to login
           console.log('🔒 User not logged in, redirecting to login');
           await this.storeIntendedDestination(params);
           this.navigateToLogin();
@@ -240,7 +253,6 @@ export class DeepLinkManager {
           this.navigateToLogin();
         }
       } else {
-        // Default navigation to products screen
         if (isLoggedIn) {
           this.navigateToProducts();
         } else {
@@ -258,7 +270,6 @@ export class DeepLinkManager {
     try {
       console.log('🔗 Navigating to product details:', productId);
 
-      // Reset navigation to ensure clean navigation
       this.navigationRef.reset({
         index: 0,
         routes: [
@@ -279,7 +290,6 @@ export class DeepLinkManager {
       });
     } catch (error) {
       console.error('❌ Error navigating to product details:', error);
-      // Fallback navigation
       this.navigationRef.navigate('ProductsTab', {
         screen: 'ProductDetails',
         params: {_id: productId},
@@ -361,10 +371,8 @@ export class DeepLinkManager {
         const params: DeepLinkParams = JSON.parse(storedDestination);
         console.log('📱 Navigating to stored destination:', params);
 
-        // Clear the stored destination
         await AsyncStorage.removeItem('@intended_destination');
 
-        // Navigate to the intended destination with a delay to ensure navigation is ready
         setTimeout(() => {
           this.navigateBasedOnParams(params);
         }, 1000);
@@ -404,37 +412,3 @@ export class DeepLinkManager {
 }
 
 export default DeepLinkManager;
-
-// Updated App.tsx changes needed:
-/*
-In your App.tsx, update the navigation ready handler:
-
-const onNavigationReady = () => {
-  console.log('🧭 Navigation container ready');
-  if (navigationRef.current) {
-    const deepLinkManager = DeepLinkManager.getInstance();
-    deepLinkManager.setNavigationRef(navigationRef.current);
-  }
-};
-
-And ensure proper cleanup in useEffect:
-useEffect(() => {
-  // Initialize lifecycle manager
-  const lifecycleManager = AppLifecycleManager.getInstance();
-  lifecycleManager.init();
-  setLifecycleManagerInitialized(true);
-
-  // Initialize deep link manager
-  const deepLinkManager = DeepLinkManager.getInstance();
-  const deepLinkCleanup = deepLinkManager.init();
-  setDeepLinkInitialized(true);
-
-  // Cleanup function
-  return () => {
-    lifecycleManager.destroy();
-    if (deepLinkCleanup) {
-      deepLinkCleanup();
-    }
-  };
-}, []);
-*/

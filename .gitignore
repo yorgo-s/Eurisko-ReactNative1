@@ -83,3 +83,4 @@ yarn-error.log
 .env.staging
 
 /context
+components/debug

@@ -117,13 +117,7 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
       const {message, urls} = createShareMessage();
 
       // For copy, we'll provide both the custom scheme and HTTPS link
-      const copyMessage =
-        `${product.title} - $${product.price.toFixed(2)}\n\n` +
-        `App Link: ${urls.customScheme}\n` +
-        `Web Link: ${urls.httpsLink}\n\n` +
-        `${product.description.substring(0, 100)}${
-          product.description.length > 100 ? '...' : ''
-        }`;
+      const copyMessage = urls.httpsLink;
 
       await Clipboard.setString(copyMessage);
 
