@@ -1,7 +1,15 @@
 import React from 'react';
+import {useMemo} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, Alert} from 'react-native';
 import crashlytics from '@react-native-firebase/crashlytics';
+import {
+  getCrashlytics,
+  crash,
+  log,
+  recordError,
+} from '@react-native-firebase/crashlytics';
 
+const crashlyticsInstance = useMemo(() => getCrashlytics(), []);
 const CrashTestButton: React.FC = () => {
   const handleCrash = () => {
     Alert.alert('Test Crash', 'This will crash the app. Continue?', [
@@ -10,8 +18,9 @@ const CrashTestButton: React.FC = () => {
         text: 'Crash App',
         style: 'destructive',
         onPress: () => {
-          // This should work now with firebase.json config
-          crashlytics().crash();
+          const isEnabled = crashlyticsInstance.isCrashlyticsCollectionEnabled;
+          log(crashlyticsInstance, 'User triggered native test crash');
+          crash(crashlyticsInstance);
         },
       },
     ]);
