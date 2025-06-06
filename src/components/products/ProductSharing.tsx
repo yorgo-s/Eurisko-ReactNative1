@@ -1,3 +1,6 @@
+// src/components/products/ProductSharing.tsx
+// REPLACE THIS ENTIRE FILE WITH THE CODE BELOW
+
 import React, {useContext} from 'react';
 import {
   View,
@@ -13,12 +16,20 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import {ThemeContext} from '../../context/ThemeContext';
 import {Product} from '../../api/products';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import DeepLinkManager from '../../utils/deepLinkUtils';
 
 interface ProductSharingProps {
   product: Product;
   onShareComplete?: () => void;
 }
+
+// Helper functions to generate links (FIXED: Moved out of DeepLinkManager)
+const generateProductLink = (productId: string): string => {
+  return `awesomeshop://product/${productId}`;
+};
+
+const generateHTTPSProductLink = (productId: string): string => {
+  return `https://awesomeshop.app/product/${productId}`;
+};
 
 // Main ProductSharing component
 const ProductSharing: React.FC<ProductSharingProps> = ({
@@ -27,19 +38,11 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
 }) => {
   const {colors, isDarkMode, getFontStyle} = useContext(ThemeContext);
 
-  // Function to get full image URL
-  const getImageUrl = (relativeUrl: string) => {
-    if (relativeUrl.startsWith('http')) {
-      return relativeUrl;
-    }
-    return `https://backend-practice.eurisko.me${relativeUrl}`;
-  };
-
-  // Generate product URLs (deep links)
+  // Generate product URLs (FIXED: Don't use DeepLinkManager here)
   const generateProductUrls = () => {
     return {
-      customScheme: DeepLinkManager.generateProductLink(product._id),
-      httpsLink: DeepLinkManager.generateHTTPSProductLink(product._id),
+      customScheme: generateProductLink(product._id),
+      httpsLink: generateHTTPSProductLink(product._id),
       webFallback: `https://awesomeshop.app/product/${product._id}`,
     };
   };
@@ -64,20 +67,19 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     };
   };
 
-  // Handle general sharing using React Native's built-in Share API
+  // Handle general sharing (FIXED: Better error handling and platform-specific options)
   const handleShare = async () => {
     try {
       const {message, urls} = createShareMessage();
 
-      const shareOptions = {
+      const shareOptions: any = {
         title: `${product.title} - $${product.price.toFixed(2)}`,
         message: message,
-        url: Platform.OS === 'ios' ? urls.httpsLink : undefined,
       };
 
-      // On Android, include URL in message since Android Share API doesn't support url parameter
-      if (Platform.OS === 'android') {
-        shareOptions.message = message;
+      // Only add URL for iOS
+      if (Platform.OS === 'ios') {
+        shareOptions.url = urls.httpsLink;
       }
 
       const result = await RNShare.share(shareOptions);
@@ -89,12 +91,11 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
           console.log('✅ Product shared successfully');
         }
 
-        // Show success feedback
-        Alert.alert(
-          'Shared Successfully!',
-          'Product link has been shared. Recipients can tap the link to view the product.',
-          [{text: 'OK'}],
-        );
+        // Alert.alert(
+        //   'Shared Successfully!',
+        //   'Product link has been shared. Recipients can tap the link to view the product.',
+        //   [{text: 'OK'}],
+        // );
 
         onShareComplete?.();
       } else if (result.action === RNShare.dismissedAction) {
@@ -110,19 +111,18 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     }
   };
 
-  // Handle copy link
+  // Handle copy link (FIXED: Safer implementation)
   const handleCopyLink = async () => {
     try {
-      const {message, urls} = createShareMessage();
+      const {urls} = createShareMessage();
 
-      // For copy, we'll provide both the custom scheme and HTTPS link
       const copyMessage = urls.httpsLink;
 
       await Clipboard.setString(copyMessage);
 
       Alert.alert(
         'Link Copied!',
-        'Product links have been copied to your clipboard. You can paste them anywhere to share this product.',
+        'Product links have been copied to your clipboard.',
         [{text: 'OK'}],
       );
     } catch (error) {
@@ -133,19 +133,13 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
     }
   };
 
-  // Show comprehensive sharing options
+  // Show sharing options
   const showSharingOptions = () => {
     const options: AlertButton[] = [
       {text: 'Share via Apps', onPress: handleShare},
       {text: 'Copy Links', onPress: handleCopyLink},
+      {text: 'Cancel', style: 'cancel'},
     ];
-
-    // // Add test option in development
-    // if (__DEV__) {
-    //   options.push({text: 'Test Deep Link', onPress: handleTestDeepLink});
-    // }
-
-    options.push({text: 'Cancel', style: 'cancel'});
 
     Alert.alert(
       'Share Product',
@@ -205,13 +199,11 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
   return (
     <View>
       <View style={styles.container}>
-        {/* Main Share Button */}
         <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
           <Icon name="share-variant" size={20} color="#FFFFFF" />
           <Text style={styles.shareButtonText}>Share Product</Text>
         </TouchableOpacity>
 
-        {/* More Options Button */}
         <TouchableOpacity
           style={styles.moreButton}
           onPress={showSharingOptions}>
@@ -219,7 +211,6 @@ const ProductSharing: React.FC<ProductSharingProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Info about deep linking */}
       <View style={styles.infoContainer}>
         <Icon name="information" size={16} color={colors.primary} />
         <Text style={styles.infoText}>
