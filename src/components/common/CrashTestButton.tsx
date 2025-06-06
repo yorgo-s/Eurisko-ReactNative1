@@ -1,15 +1,15 @@
 import React from 'react';
-import {useMemo} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, Alert} from 'react-native';
-import crashlytics from '@react-native-firebase/crashlytics';
-import {
+import crashlytics, {
   getCrashlytics,
   crash,
   log,
   recordError,
 } from '@react-native-firebase/crashlytics';
 
-const crashlyticsInstance = useMemo(() => getCrashlytics(), []);
+// Remove useMemo and just call getCrashlytics directly
+const crashlyticsInstance = getCrashlytics();
+
 const CrashTestButton: React.FC = () => {
   const handleCrash = () => {
     Alert.alert('Test Crash', 'This will crash the app. Continue?', [
