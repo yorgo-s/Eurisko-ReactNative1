@@ -403,12 +403,6 @@ const ProfileScreen = () => {
           {/* Account Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
-            {__DEV__ && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Development Tools</Text>
-                <CrashTestButton />
-              </View>
-            )}
 
             <View style={styles.option}>
               <View style={styles.optionIcon}>
@@ -444,7 +438,12 @@ const ProfileScreen = () => {
               />
             </View>
           </View>
-
+          {__DEV__ && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Development Tools</Text>
+              <CrashTestButton />
+            </View>
+          )}
           {/* Logout Button */}
           <TouchableOpacity
             style={styles.logoutButton}
